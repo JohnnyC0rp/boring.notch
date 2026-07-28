@@ -23,7 +23,7 @@ class AudioSpectrum: NSView, AudioCaptureLevelsConsumer {
     private static let idleBarScale: CGFloat = 0.3
     private static let animationKey = "scaleAnimation"
 
-    private let barWidth: CGFloat = 2
+    private let barWidth: CGFloat = 2.5
     private let barCount = AudioCaptureManager.barCount
     private let spacing: CGFloat = 1
     private let totalHeight: CGFloat = 14
@@ -248,7 +248,7 @@ struct AudioSpectrumView: NSViewRepresentable {
     ZStack {
         Color.black
         AudioSpectrumView(isPlaying: true, tintColor: .green)
-            .frame(width: 18, height: 14)
+            .frame(width: 20, height: 14)
     }
     .padding()
 }
