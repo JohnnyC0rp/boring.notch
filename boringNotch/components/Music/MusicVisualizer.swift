@@ -229,7 +229,7 @@ struct AudioSpectrumView: NSViewRepresentable {
     func makeNSView(context: Context) -> AudioSpectrum {
         let spectrum = AudioSpectrum()
         spectrum.setTintColor(NSColor(tintColor))
-        spectrum.setUseRealtime(realtimeEnabled && audioCapture.isCapturing)
+        spectrum.setUseRealtime(realtimeEnabled)
         spectrum.setPlaying(isPlaying)
         spectrum.attach(to: audioCapture)
         spectrum.syncCurrentLevels(from: audioCapture)
@@ -238,7 +238,7 @@ struct AudioSpectrumView: NSViewRepresentable {
 
     func updateNSView(_ nsView: AudioSpectrum, context: Context) {
         nsView.setTintColor(NSColor(tintColor))
-        nsView.setUseRealtime(realtimeEnabled && audioCapture.isCapturing)
+        nsView.setUseRealtime(realtimeEnabled)
         nsView.setPlaying(isPlaying)
         nsView.syncCurrentLevels(from: audioCapture)
     }
