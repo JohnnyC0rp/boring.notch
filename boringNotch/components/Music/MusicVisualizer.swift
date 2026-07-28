@@ -18,7 +18,7 @@ class AudioSpectrum: NSView, AudioCaptureLevelsConsumer {
 
     private weak var attachedManager: AudioCaptureManager?
     private var lastAppliedLevels: [Float]
-    private static let levelChangeThreshold: Float = 0.005
+    private static let levelChangeThreshold: Float = 0.01
     private static let minBarScale: CGFloat = 0.12
     private static let idleBarScale: CGFloat = 0.3
     private static let animationKey = "scaleAnimation"

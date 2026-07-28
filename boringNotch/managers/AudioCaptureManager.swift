@@ -732,8 +732,9 @@ final class AudioCaptureManager: ObservableObject {
         var maxDelta: Float = 0
         for i in 0..<Self.barCount {
             let target = barsBuf[i]
-            let decayed = smoothed[i] * 0.86
-            let next = target > decayed ? (decayed + (target - decayed) * 0.58) : decayed
+            let current = smoothed[i]
+            let smoothing: Float = target > current ? 0.38 : 0.16
+            let next = current + (target - current) * smoothing
             smoothed[i] = next
             let clipped = max(0, min(1, next))
             barsBuf[i] = clipped
