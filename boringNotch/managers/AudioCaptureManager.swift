@@ -29,10 +29,12 @@ final class AudioCaptureManager: ObservableObject {
     private static let ringCapacity = 4096
     private static let fftIntervalMilliseconds = 33
     private static let fftLeewayMilliseconds = 0
-    private static let floorDB: Float = -58
-    private static let ceilDB: Float = -14
+    private static let floorDB: Float = -64
+    private static let ceilDB: Float = -24
+    private static let responseGamma: Float = 0.72
     private static let referenceHz: Double = 1000
     private static let pinkCompensationSlopePerOctave: Double = 3.0
+    private static let minimumPinkCompensationDB: Double = -1.5
     private static let fftQueueKey = DispatchSpecificKey<Void>()
     private static let lifecycleQueueKey = DispatchSpecificKey<Void>()
     private static let allowedAlreadyDestroyedStatuses: Set<OSStatus> = [
@@ -725,7 +727,9 @@ final class AudioCaptureManager: ObservableObject {
                 let meanPow = sum / Float(range.count)
                 let db = 10 * log10f(max(meanPow, 1e-12)) + pinkCompensationDB[i]
                 let clamped = max(floorDB, min(ceilDB, db))
-                barsBuf[i] = (clamped - floorDB) / dbRange
+                let normalized = (clamped - floorDB) / dbRange
+                // Lift quieter harmonics without turning silence into a tiny disco.
+                barsBuf[i] = powf(normalized, Self.responseGamma)
             }
         }
 
@@ -815,7 +819,8 @@ final class AudioCaptureManager: ObservableObject {
             let endBin = max(startBin + 1, min(halfN, Int((endHz / nyquist) * Double(halfN))))
             ranges.append(startBin..<endBin)
             let centerHz = sqrt(startHz * endHz)
-            pinks.append(Float(Self.pinkCompensationSlopePerOctave * log2(centerHz / Self.referenceHz)))
+            let compensation = Self.pinkCompensationSlopePerOctave * log2(centerHz / Self.referenceHz)
+            pinks.append(Float(max(Self.minimumPinkCompensationDB, compensation)))
         }
         bandRanges = ranges
         pinkCompensationDB = pinks
