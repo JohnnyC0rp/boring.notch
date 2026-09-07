@@ -384,6 +384,13 @@ private struct CalendarTimelineTrack: View {
             .frame(width: width, height: 14, alignment: .topLeading)
         }
         .frame(width: width, height: CalendarDayStackGeometry.rowHeight)
+        .overlay(alignment: .topLeading) {
+            if let y = CalendarDayStackGeometry.hiddenTimeOffset(for: now, in: day, visibleRange: range) {
+                Rectangle().fill(.red.opacity(0.7)).frame(width: width, height: 1)
+                    .shadow(color: .red.opacity(highlighted ? 0.8 : 0), radius: highlighted ? 5 : 0)
+                    .offset(y: y - 0.5).allowsHitTesting(false).accessibilityHidden(true)
+            }
+        }
     }
 
     private func eventBlock(_ event: EventModel, placement: CalendarTimelineGeometry.Placement, laneHeight: CGFloat) -> some View {
