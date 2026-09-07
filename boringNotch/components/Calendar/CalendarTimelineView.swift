@@ -81,10 +81,10 @@ struct CalendarTimelineView: View {
                             .background(.black)
                     }
                 }
-                .frame(height: 202)
+                .frame(height: 204)
                 .clipped()
             } else {
-                permissionState.frame(height: 202)
+                permissionState.frame(height: 204)
             }
         }
         .foregroundStyle(.white)
@@ -166,7 +166,7 @@ struct CalendarTimelineView: View {
             Spacer(minLength: 0)
         }
         .padding(.top, 2)
-        .frame(width: 47, height: CalendarDayStackGeometry.rowHeight, alignment: .topLeading)
+        .frame(width: 68, height: CalendarDayStackGeometry.rowHeight, alignment: .topLeading)
         .overlay(alignment: .trailing) {
             Path { path in
                 path.move(to: CGPoint(x: 0, y: 0))
@@ -183,7 +183,7 @@ struct CalendarTimelineView: View {
         .overlay(alignment: .topLeading) {
             if let y = CalendarDayStackGeometry.hiddenTimeOffset(for: now, in: day.interval, visibleRange: visibleRange(for: day.id)) {
                 CalendarTimelineTimeBadge(time: now, highlighted: todayHighlighted)
-                    .frame(width: 47, height: 12).offset(y: y - 6)
+                    .frame(width: 68, height: 16).offset(y: y - 8)
                     .allowsHitTesting(false)
             }
         }
@@ -342,7 +342,8 @@ private struct CalendarTimelineTrack: View {
         let counts = CalendarTimelineGeometry.clusterLaneCounts(for: layout)
         let currentDay = now >= range.start && now < range.end
         let progress = CalendarTimelineGeometry.position(of: now, in: range, pointsPerHour: pointsPerHour)
-        VStack(spacing: 4) {
+        let badgeWidth = CalendarTimelineTimeBadge.width(for: now)
+        VStack(spacing: 2) {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 8).fill(.white.opacity(0.035))
                     .frame(width: range.duration / 3600 * pointsPerHour)
@@ -377,16 +378,22 @@ private struct CalendarTimelineTrack: View {
             .frame(width: width, height: 76, alignment: .topLeading)
             ZStack(alignment: .topLeading) {
                 ForEach(CalendarTimelineGeometry.hourTicks(in: range), id: \.self) { tick in
-                    Text(tickLabel(tick)).font(.system(size: 9, weight: .medium, design: .monospaced))
+                    let labelWidth = CGFloat(pointsPerHour - 4)
+                    let tickX = CGFloat(CalendarTimelineGeometry.position(of: tick, in: range, pointsPerHour: pointsPerHour))
+                    let maximumX = max(0, CGFloat(range.duration / 3600 * pointsPerHour) - labelWidth)
+                    let alignment: Alignment = tick == range.start ? .leading : tick == range.end ? .trailing : .center
+                    Text(tickLabel(tick)).font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .lineLimit(1).truncationMode(.tail)
+                        .frame(width: labelWidth, height: 16, alignment: alignment)
                         .foregroundStyle(.white.opacity(0.4))
-                        .offset(x: tick == range.end ? max(0, range.duration / 3600 * pointsPerHour - 31) : CalendarTimelineGeometry.position(of: tick, in: range, pointsPerHour: pointsPerHour) + 4)
+                        .offset(x: min(max(0, tickX - labelWidth / 2), maximumX))
                 }
                 if currentDay {
                     CalendarTimelineTimeBadge(time: now, highlighted: highlighted)
-                        .offset(x: max(0, progress - 19))
+                        .offset(x: min(max(0, CGFloat(progress) - badgeWidth / 2), max(0, width - badgeWidth)))
                 }
             }
-            .frame(width: width, height: 14, alignment: .topLeading)
+            .frame(width: width, height: 16, alignment: .topLeading)
         }
         .frame(width: width, height: CalendarDayStackGeometry.rowHeight)
         .overlay(alignment: .topLeading) {
@@ -412,13 +419,15 @@ private struct CalendarTimelineTrack: View {
                     if placement.width > 28 {
                         VStack(alignment: .leading, spacing: laneHeight > 40 ? 3 : 1) {
                             Text(event.title)
-                                .font(.system(size: laneHeight > 40 ? 11 : 9, weight: .medium))
-                                .lineLimit(laneHeight > 40 ? 3 : laneHeight > 30 ? 2 : 1)
-                            if let location = event.location, !location.isEmpty {
+                                .font(.system(size: 11, weight: .medium))
+                                .lineLimit(laneHeight >= 52 ? 2 : 1)
+                                .truncationMode(.tail)
+                            if laneHeight > 30, let location = event.location, !location.isEmpty {
                                 Text(location.replacingOccurrences(of: "\n", with: ", "))
-                                    .font(.system(size: laneHeight > 40 ? 9 : 7))
+                                    .font(.system(size: 9))
                                     .foregroundStyle(color.opacity(0.85))
-                                    .lineLimit(laneHeight > 40 ? 2 : 1)
+                                    .lineLimit(laneHeight >= 52 ? 2 : 1)
+                                    .truncationMode(.tail)
                             }
                         }
                         Spacer(minLength: 0)
@@ -447,7 +456,7 @@ private struct CalendarTimelineTrack: View {
     }
 
     private func tickLabel(_ tick: Date) -> String {
-        let format = Date.FormatStyle.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)
+        let format = Date.FormatStyle.dateTime.hour().minute()
         let label = tick.formatted(format)
         let repeats = CalendarTimelineGeometry.hourTicks(in: range).filter {
             $0 < range.end && $0.formatted(format) == label
@@ -481,10 +490,17 @@ private struct CalendarTimelineTimeBadge: View {
     let time: Date
     let highlighted: Bool
 
+    static func width(for time: Date) -> CGFloat {
+        let label = time.formatted(date: .omitted, time: .shortened) as NSString
+        let font = NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold)
+        return ceil(label.size(withAttributes: [.font: font]).width) + 10
+    }
+
     var body: some View {
-        Text(time.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)))
-            .font(.system(size: 9, weight: .semibold, design: .monospaced))
-            .foregroundStyle(.white).padding(.horizontal, 4)
+        Text(time.formatted(date: .omitted, time: .shortened))
+            .font(.system(size: 11, weight: .semibold, design: .monospaced))
+            .foregroundStyle(.white).padding(.horizontal, 5)
+            .frame(width: Self.width(for: time), height: 16)
             .background(.red, in: Capsule())
             .overlay { Capsule().stroke(.white.opacity(highlighted ? 0.95 : 0), lineWidth: 1.5) }
             .shadow(color: .red.opacity(highlighted ? 0.7 : 0), radius: highlighted ? 6 : 0)

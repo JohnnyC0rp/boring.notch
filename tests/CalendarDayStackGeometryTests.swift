@@ -16,17 +16,17 @@ enum CalendarDayStackGeometryTests {
         require(days[3].id == date("2026-09-07T00:00:00Z"), "The requested day must occupy the middle row")
         require(unwrap(days.first).id == date("2026-09-04T00:00:00Z") && unwrap(days.last).id == date("2026-09-10T00:00:00Z"),
                 "The window must extend three calendar days in each direction")
-        require(CalendarDayStackGeometry.rowHeight == 94 && CalendarDayStackGeometry.rowSpacing == 12
-                && CalendarDayStackGeometry.rowStride == 106 && CalendarDayStackGeometry.pointsPerHour == 96,
+        require(CalendarDayStackGeometry.rowHeight == 94 && CalendarDayStackGeometry.rowSpacing == 16
+                && CalendarDayStackGeometry.rowStride == 110 && CalendarDayStackGeometry.pointsPerHour == 96,
                 "The day stack must use the intended fixed row and horizontal hour dimensions")
         verifyWindow(days)
         verifyHiddenTimeOffsets(in: days[3].interval)
 
         let documentHeight = CalendarDayStackGeometry.documentHeight(for: days)
-        require(documentHeight == 730, "Seven rows must have only six intervening gaps")
+        require(documentHeight == 754, "Seven rows must have only six intervening gaps")
         let twoRowHeight = CalendarDayStackGeometry.documentHeight(for: Array(days.prefix(2)))
-        require(twoRowHeight == 200 && twoRowHeight <= 202,
-                "Two complete day rows and their gap must fit inside the 202-point viewport")
+        require(twoRowHeight == 204 && twoRowHeight <= 204,
+                "Two complete day rows and their gap must fit inside the 204-point viewport")
         require(CalendarDayStackGeometry.position(at: -10, in: days) == .init(day: days[0].id, intraDayOffset: 0),
                 "Negative positions must clamp to the first row")
         require(CalendarDayStackGeometry.position(at: documentHeight + 10, in: days)
@@ -71,17 +71,17 @@ enum CalendarDayStackGeometryTests {
         let visible = DateInterval(start: date("2026-09-07T07:00:00Z"), end: date("2026-09-07T19:00:00Z"))
         let early = date("2026-09-07T04:00:00Z")
         let late = date("2026-09-07T22:58:00Z")
-        require(CalendarDayStackGeometry.hiddenTimeOffset(for: early, in: day, visibleRange: visible) == -6,
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: early, in: day, visibleRange: visible) == -8,
                 "04:00 must appear in the middle of the gap above the daytime row")
-        require(CalendarDayStackGeometry.hiddenTimeOffset(for: late, in: day, visibleRange: visible) == 100,
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: late, in: day, visibleRange: visible) == 102,
                 "22:58 must appear in the middle of the gap below the daytime row")
         require(CalendarDayStackGeometry.hiddenTimeOffset(for: visible.start, in: day, visibleRange: visible) == nil,
                 "Exactly 07:00 belongs to the visible timeline and must not duplicate its marker in the gap")
-        require(CalendarDayStackGeometry.hiddenTimeOffset(for: visible.end, in: day, visibleRange: visible) == 100,
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: visible.end, in: day, visibleRange: visible) == 102,
                 "Exactly 19:00 is outside the half-open visible range and needs the lower gap marker")
         require(CalendarDayStackGeometry.hiddenTimeOffset(for: date("2026-09-07T12:00:00Z"), in: day, visibleRange: visible) == nil,
                 "Visible daytime hours must not produce a hidden-time marker")
-        require(CalendarDayStackGeometry.hiddenTimeOffset(for: day.start, in: day, visibleRange: visible) == -6,
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: day.start, in: day, visibleRange: visible) == -8,
                 "The inclusive midnight day boundary must remain eligible for the upper gap")
         for outside in [day.start.addingTimeInterval(-1), day.end, day.end.addingTimeInterval(4 * 3600)] {
             require(CalendarDayStackGeometry.hiddenTimeOffset(for: outside, in: day, visibleRange: visible) == nil,
@@ -90,7 +90,7 @@ enum CalendarDayStackGeometryTests {
         let extendedLate = DateInterval(start: visible.start, end: date("2026-09-07T23:00:00Z"))
         require(CalendarDayStackGeometry.hiddenTimeOffset(for: late, in: day, visibleRange: extendedLate) == nil,
                 "A late event extending the visible range must suppress the redundant 22:58 gap marker")
-        require(CalendarDayStackGeometry.hiddenTimeOffset(for: extendedLate.end, in: day, visibleRange: extendedLate) == 100,
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: extendedLate.end, in: day, visibleRange: extendedLate) == 102,
                 "The lower gap marker must follow the expanded visible range's exclusive end")
         let extendedEarly = DateInterval(start: date("2026-09-07T03:00:00Z"), end: visible.end)
         require(CalendarDayStackGeometry.hiddenTimeOffset(for: early, in: day, visibleRange: extendedEarly) == nil,
@@ -119,7 +119,7 @@ enum CalendarDayStackGeometryTests {
             require(CalendarDayStackGeometry.offset(of: .init(day: day.id, intraDayOffset: 0), in: days) == rowStart,
                     "DST must never change vertical day-row spacing")
             var fractions = [0.0, 0.123456789, 17.625, 93.999999, 94.0]
-            if index < days.count - 1 { fractions.append(contentsOf: [97.125, 104, 105.999]) }
+            if index < days.count - 1 { fractions.append(contentsOf: [97.125, 104, 109.999]) }
             for fraction in fractions {
                 let y = rowStart + fraction
                 let position = unwrap(CalendarDayStackGeometry.position(at: y, in: days))
@@ -129,7 +129,7 @@ enum CalendarDayStackGeometryTests {
                         "Pixel positions must round-trip within one billionth of a point")
             }
         }
-        require(CalendarDayStackGeometry.documentHeight(for: days) == 730,
+        require(CalendarDayStackGeometry.documentHeight(for: days) == 754,
                 "DST and fractional-hour transitions must not change the document height")
     }
 
