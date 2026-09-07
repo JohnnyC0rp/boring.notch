@@ -196,6 +196,10 @@ struct ContentView: View {
                         }
                     }
                     .onChange(of: vm.notchState) { _, newState in
+                        if newState == .closed, let window = NSApp.keyWindow as? BoringNotchSkyLightWindow {
+                            window.makeFirstResponder(nil)
+                            window.resignKey()
+                        }
                         if newState == .closed && isHovering {
                             withAnimation {
                                 isHovering = false
