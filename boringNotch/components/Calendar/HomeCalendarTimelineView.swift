@@ -368,11 +368,12 @@ private struct HomeCalendarDayLane: View {
                 HStack(spacing: 4) {
                     RoundedRectangle(cornerRadius: 1).fill(color).frame(width: 2)
                     if placement.width > 28 {
-                        VStack(alignment: .leading, spacing: tall ? 4 : 2) {
+                        VStack(alignment: .leading, spacing: tall ? 6 : 2) {
                             Text(event.title)
                                 .font(.system(size: 11, weight: .medium))
                                 .lineLimit(tall ? 3 : 1)
                                 .truncationMode(.tail)
+                                .multilineTextAlignment(.leading)
                             if laneHeight > 30, let location = event.location, !location.isEmpty {
                                 Text(location.replacingOccurrences(of: "\n", with: ", "))
                                     .font(.system(size: 9))
