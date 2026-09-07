@@ -75,6 +75,16 @@ private struct ScrollRoutingFixture: View {
         }
         precondition(abs(scrollView.contentView.bounds.minX - initial) < 0.01, "Opposite wheel deltas must return to the original time")
         checks += 1
+        let frozenGutter = NSClipView(frame: NSRect(x: 0, y: 0, width: 47, height: 100))
+        frozenGutter.documentView = NSView(frame: NSRect(x: 0, y: 0, width: 47, height: 700))
+        host.addSubview(frozenGutter)
+        for x in [1.0, 23, 46] {
+            for y in [1.0, 99] {
+                let point = frozenGutter.convert(NSPoint(x: x, y: y), to: nil)
+                precondition(PanGestureScrollRouting.targetsScrollView(event(at: point)), "Frozen day labels must keep wheel ownership")
+                checks += 1
+            }
+        }
         print("PASS \(checks) native calendar wheel-routing checks")
     }
 }
