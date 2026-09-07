@@ -153,6 +153,10 @@ struct CalendarTodayShortcutTests {
         expect(handler.handleLocalEvent(replyClick) === replyClick, "Notification reply clicks remain available")
         expect(panel.firstResponder === editor, "Calendar never replaces an active notification reply editor")
         expect(handler.handleLocalEvent(event()) != nil && actions == beforeReply, "Typing T in a notification reply does not invoke Today")
+        panel.makeFirstResponder(handler)
+        expect(handler.handleLocalEvent(event()) != nil && actions == beforeReply,
+               "Notification reply focus blocks Today before its editor becomes first responder")
+        panel.makeFirstResponder(editor)
         expect(panel.calendarOwners.contains(ObjectIdentifier(handler)), "The calendar owns a scoped key-focus request")
         handler.removeMonitor()
         expect(panel.calendarOwners.isEmpty && panel.wantsKeyForTextInput && panel.isKeyWindow,

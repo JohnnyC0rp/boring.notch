@@ -44,6 +44,7 @@ enum CalendarTodayShortcutRouting {
         guard event.type == .keyDown, event.window === window, window.isKeyWindow,
               (event.keyCode == 17 || event.charactersIgnoringModifiers?.lowercased() == "t"),
               event.modifierFlags.intersection([.command, .control, .option, .function]).isEmpty else { return false }
+        if (window as? CalendarKeyboardFocusProviding)?.wantsKeyForTextInput == true { return false }
         if let editor = window.firstResponder as? NSTextView, editor.isEditable { return false }
         return true
     }
