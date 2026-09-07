@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-only
 set -euo pipefail
 repo_dir="$(cd "$(dirname "$0")/.." && pwd)"
 label="theboringteam.boringnotch.codex-activity-login"
@@ -11,6 +12,8 @@ mkdir -p "$HOME/Library/LaunchAgents" "$log_dir" "$runtime_dir/script"
 chmod 700 "$log_dir" "$runtime_dir" "$runtime_dir/script"
 # Login startup uses an installed runtime, independent of the source checkout.
 install -m 700 "$repo_dir/script/codex_activity_bridge.py" "$runtime_dir/script/codex_activity_bridge.py"
+install -m 700 "$repo_dir/script/codex_activity_json.py" "$runtime_dir/script/codex_activity_json.py"
+install -m 700 "$repo_dir/script/codex_activity_discovery.py" "$runtime_dir/script/codex_activity_discovery.py"
 install -m 700 "$repo_dir/script/start-codex-activity-bridge.sh" "$runtime_dir/script/start-codex-activity-bridge.sh"
 export BORINGNOTCH_ACTIVITY_RUNTIME="$runtime_dir"
 export BORINGNOTCH_ACTIVITY_AGENT_FILE="$agent_file"

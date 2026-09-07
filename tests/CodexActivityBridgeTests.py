@@ -1,7 +1,11 @@
+# SPDX-License-Identifier: GPL-3.0-only
+
 import importlib.util
 from pathlib import Path
+import sys
 import unittest
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "script"))
 
 spec = importlib.util.spec_from_file_location("activity_bridge", Path(__file__).resolve().parents[1] / "script/codex_activity_bridge.py")
 bridge = importlib.util.module_from_spec(spec)
