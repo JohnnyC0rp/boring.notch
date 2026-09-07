@@ -362,6 +362,7 @@ extension Defaults.Keys {
     static let reverseShelfOrdering = Key<Bool>("reverseShelfOrdering", default: false)
     
     // MARK: Calendar
+    static let showMonthOnHome = Key<Bool>("showMonthOnHome", default: false)
     static let calendarSelectionState = Key<CalendarSelectionState>("calendarSelectionState", default: .all)
     static let hideAllDayEvents = Key<Bool>("hideAllDayEvents", default: false)
     static let showFullEventTitles = Key<Bool>("showFullEventTitles", default: false)

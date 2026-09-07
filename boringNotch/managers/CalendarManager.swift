@@ -190,6 +190,16 @@ final class CalendarManager: ObservableObject {
         await updateEvents()
     }
 
+    /// Query the timeline's rolling range without changing the selected calendar day.
+    func events(from start: Date, to end: Date) async -> [EventModel] {
+        await reloadCalendarAndReminderLists()
+        let identifiers = selectedCalendarIDs
+        guard !identifiers.isEmpty else { return [] }
+        let result = await calendarService.events(from: start, to: end, calendars: Array(identifiers))
+        // EventKit treats an empty per-entity calendar list as every calendar.
+        return result.filter { identifiers.contains($0.calendar.id) }
+    }
+
     private func updateEvents() async {
         let calendarIDs = selectedCalendars.map { $0.id }
         let eventsResult = await calendarService.events(
