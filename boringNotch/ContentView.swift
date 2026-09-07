@@ -652,17 +652,15 @@ struct ContentView: View {
     }
 
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
+        if phase == .ended {
+            withAnimation(animationSpring) { gestureProgress = .zero }
+            return
+        }
         guard vm.notchState == .open && !vm.isHoveringCalendar,
               coordinator.currentView != .calendar && coordinator.currentView != .clipboard else { return }
 
         withAnimation(animationSpring) {
             gestureProgress = (translation / Defaults[.gestureSensitivity]) * -20
-        }
-
-        if phase == .ended {
-            withAnimation(animationSpring) {
-                gestureProgress = .zero
-            }
         }
 
         if translation > Defaults[.gestureSensitivity] {
