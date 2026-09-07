@@ -39,8 +39,8 @@ private struct NativeCodexAvatar: NSViewRepresentable {
 
 private final class CodexAvatarNativeView: NSView {
     private let thinking = LottieAnimationView()
-    private let artwork = NSImageView()
-    private let colorfulArtwork = NSImageView()
+    private let artwork = CodexAvatarArtworkView()
+    private let colorfulArtwork = CodexAvatarArtworkView()
     private var style: CodexAvatarStyle?
     private var requestedActive = false
     private var reduceMotion = false
@@ -53,8 +53,6 @@ private final class CodexAvatarNativeView: NSView {
             view.wantsLayer = true
             addSubview(view)
         }
-        artwork.imageScaling = .scaleProportionallyUpOrDown
-        colorfulArtwork.imageScaling = .scaleProportionallyUpOrDown
         thinking.contentMode = .scaleAspectFit
         thinking.backgroundBehavior = .pauseAndRestore
         thinking.shouldRasterizeWhenIdle = true
@@ -76,13 +74,6 @@ private final class CodexAvatarNativeView: NSView {
         thinking.frame = rect
         artwork.frame = rect
         colorfulArtwork.frame = rect
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        for view in [artwork, colorfulArtwork] {
-            view.layer?.anchorPoint = CGPoint(x: 0.5, y: 0.5)
-            view.layer?.position = CGPoint(x: rect.midX, y: rect.midY)
-        }
-        CATransaction.commit()
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
@@ -135,7 +126,7 @@ private final class CodexAvatarNativeView: NSView {
             rotation.toValue = Double.pi * 2
             rotation.duration = 6
             rotation.repeatCount = .infinity
-            colorfulArtwork.layer?.add(rotation, forKey: "codexActivity")
+            colorfulArtwork.artworkLayer.add(rotation, forKey: "codexActivity")
         default:
             break
         }
@@ -144,8 +135,8 @@ private final class CodexAvatarNativeView: NSView {
     func stopAnimating() {
         spinning = false
         thinking.stop()
-        artwork.layer?.removeAnimation(forKey: "codexActivity")
-        colorfulArtwork.layer?.removeAnimation(forKey: "codexActivity")
+        artwork.artworkLayer.removeAnimation(forKey: "codexActivity")
+        colorfulArtwork.artworkLayer.removeAnimation(forKey: "codexActivity")
     }
 
     private func addClickSpin() {
@@ -164,7 +155,7 @@ private final class CodexAvatarNativeView: NSView {
         group.animations = [rotation, scale]
         group.duration = 1.1
         group.repeatCount = .infinity
-        artwork.layer?.add(group, forKey: "codexActivity")
+        artwork.artworkLayer.add(group, forKey: "codexActivity")
     }
 
     private struct SpinKeyframes: Decodable {
@@ -188,5 +179,35 @@ private final class CodexAvatarNativeView: NSView {
             .replacingOccurrences(of: "stroke=\"currentColor\"", with: "stroke=\"#ffffff\"")
             .replacingOccurrences(of: "opacity=\"0.3\"", with: "opacity=\"1\"")
         return NSImage(data: Data(svg.utf8))
+    }
+}
+
+private final class CodexAvatarArtworkView: NSView {
+    let artworkLayer = CALayer()
+    var image: NSImage? {
+        didSet {
+            artworkLayer.contents = image?.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        }
+    }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        wantsLayer = true
+        artworkLayer.name = "CodexAvatarArtwork"
+        artworkLayer.contentsGravity = .resizeAspect
+        layer?.addSublayer(artworkLayer)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func layout() {
+        super.layout()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        // AppKit owns the view's backing layer; the artwork gets its own dance floor.
+        artworkLayer.bounds = CGRect(origin: .zero, size: bounds.size)
+        artworkLayer.position = CGPoint(x: bounds.midX, y: bounds.midY)
+        artworkLayer.contentsScale = window?.backingScaleFactor ?? 2
+        CATransaction.commit()
     }
 }
