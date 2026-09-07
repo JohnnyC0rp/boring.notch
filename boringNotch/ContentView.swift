@@ -39,6 +39,7 @@ struct ContentView: View {
 
     @Default(.showNotHumanFace) var showNotHumanFace
     @Default(.codexAvatarStyle) private var codexAvatarStyle
+    @Default(.codexAutomaticAvatar) private var codexAutomaticAvatar
 
     // Use standardized animations from StandardAnimations enum
     private let animationSpring = StandardAnimations.interactive
@@ -436,18 +437,24 @@ struct ContentView: View {
         )
     }
 
+    private var activityAvatarStyle: CodexAvatarStyle {
+        codexAutomaticAvatar ? CodexAvatarStyle(tier: codexActivity.level.tier) : codexAvatarStyle
+    }
+
     private var idleAvatar: some View {
-        CodexAvatarView(style: codexAvatarStyle, isActive: codexActivity.isActive)
+        CodexAvatarView(style: activityAvatarStyle, isActive: codexActivity.isActive,
+                        speedMultiplier: codexAutomaticAvatar ? codexActivity.level.speedMultiplier : 1)
             .overlay(alignment: .bottomTrailing) {
-                if codexAvatarStyle != .smile && (codexActivity.phase == .waiting || codexActivity.phase == .error) {
+                if (codexAutomaticAvatar || codexAvatarStyle != .smile) && (codexActivity.phase == .waiting || codexActivity.phase == .error) {
                     Circle()
                         .fill(codexActivity.phase == .waiting ? Color.orange : .red)
                         .frame(width: 5, height: 5)
                         .overlay(Circle().stroke(.black, lineWidth: 1))
                 }
             }
-            .help(codexAvatarStyle == .smile ? "Smile" : codexActivity.statusText)
-            .accessibilityLabel(codexAvatarStyle == .smile ? "Smile" : codexActivity.statusText)
+            .help(codexAutomaticAvatar || codexAvatarStyle != .smile ? codexActivity.statusText : "Smile")
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(codexAutomaticAvatar || codexAvatarStyle != .smile ? codexActivity.statusText : "Smile")
     }
 
     @ViewBuilder
@@ -530,7 +537,7 @@ struct ContentView: View {
                 )
 
             HStack {
-                if !musicManager.isPlaying && showNotHumanFace && codexAvatarStyle != .smile {
+                if !musicManager.isPlaying && showNotHumanFace && (codexAutomaticAvatar || codexAvatarStyle != .smile) {
                     idleAvatar
                 } else {
                     AudioSpectrumView(
