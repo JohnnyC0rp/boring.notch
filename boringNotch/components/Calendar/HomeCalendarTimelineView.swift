@@ -30,7 +30,12 @@ struct HomeCalendarTimelineView: View {
         _targetDate = State(initialValue: Self.initialPosition(for: date))
     }
 
-    private var days: [HomeCalendarGeometry.Day] { HomeCalendarGeometry.days(centeredOn: windowCenter) }
+    private var days: [HomeCalendarGeometry.Day] {
+        HomeCalendarGeometry.days(centeredOn: windowCenter, events: events.map {
+            .init(id: $0.homeTimelineID, start: $0.start, end: $0.end,
+                  isAllDay: $0.isAllDay, isReminder: $0.type.isReminder)
+        })
+    }
     private var hasAccess: Bool { calendarAccess == .fullAccess || reminderAccess == .fullAccess }
     private var requestID: String { "\(days.first!.id.timeIntervalSince1970)-\(reloadID)" }
     private var visibleEvents: [EventModel] {
@@ -47,7 +52,7 @@ struct HomeCalendarTimelineView: View {
             if hasAccess {
                 ZStack {
                     TimelineView(.periodic(from: .now, by: 30)) { context in
-                        HomeCalendarScrollView(days: days, targetDate: targetDate, resetID: resetID,
+                        HomeCalendarScrollView(days: days, targetDay: displayedDate, targetDate: targetDate, resetID: resetID,
                                                height: 100, onScroll: didScroll) {
                             HStack(spacing: 0) {
                                 ForEach(days) { day in
@@ -165,12 +170,13 @@ struct HomeCalendarTimelineView: View {
     }
 
     private func jump(to date: Date, showCurrentTime: Bool = false) {
+        let needsReload = !Calendar.current.isDate(date, inSameDayAs: windowCenter)
         selectedEvent = nil
         displayedDate = date
         windowCenter = date
         coordinator.calendarDate = date
         targetDate = showCurrentTime ? Date().addingTimeInterval(-3600) : Self.initialPosition(for: date)
-        pendingInitialPosition = !showCurrentTime
+        pendingInitialPosition = !showCurrentTime || loading || needsReload
         resetID += 1
     }
 
@@ -202,9 +208,9 @@ struct HomeCalendarTimelineView: View {
                 let day = CalendarTimelineGeometry.dayInterval(for: displayedDate)
                 if let first = timedEvents(on: day).first {
                     targetDate = max(first.start, day.start).addingTimeInterval(-1800)
-                    resetID += 1
                 }
             }
+            resetID += 1
         }
         loading = false
     }
@@ -235,19 +241,19 @@ private struct HomeCalendarDayLane: View {
 
     private var layout: [CalendarTimelineGeometry.Placement] {
         CalendarTimelineGeometry.layout(events.map { .init(id: $0.homeTimelineID, start: $0.start, end: $0.end) },
-                                        in: day.interval, pointsPerHour: HomeCalendarGeometry.pointsPerHour)
+                                        in: day.visibleInterval, pointsPerHour: HomeCalendarGeometry.pointsPerHour)
     }
 
     var body: some View {
         let placements = layout
         let laneCounts = CalendarTimelineGeometry.clusterLaneCounts(for: placements)
         let progress = position(now)
-        let isToday = now >= day.interval.start && now < day.interval.end
+        let isToday = day.isTimeVisible(now)
         VStack(spacing: 4) {
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 5).fill(.white.opacity(0.035))
                 Rectangle().fill(.white.opacity(0.025)).frame(width: progress)
-                ForEach(CalendarTimelineGeometry.hourTicks(in: day.interval).dropLast(), id: \.self) { tick in
+                ForEach(CalendarTimelineGeometry.hourTicks(in: day.visibleInterval).dropLast(), id: \.self) { tick in
                     Rectangle().fill(.white.opacity(0.06)).frame(width: 1).offset(x: position(tick))
                 }
                 ForEach(placements.filter { $0.lane < 2 }) { placement in
@@ -282,24 +288,24 @@ private struct HomeCalendarDayLane: View {
             }
             .frame(width: day.width, height: 80, alignment: .topLeading)
             ZStack(alignment: .topLeading) {
-                ForEach(CalendarTimelineGeometry.hourTicks(in: day.interval).dropLast(), id: \.self) { tick in
+                ForEach(CalendarTimelineGeometry.hourTicks(in: day.visibleInterval), id: \.self) { tick in
                     Text(tickLabel(tick))
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.4))
-                        .offset(x: position(tick) + 4)
+                        .offset(x: min(position(tick) + 4, day.width - 34))
                 }
                 Text(day.interval.start.formatted(.dateTime.weekday(.abbreviated).day()).uppercased())
                     .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(.red)
                     .padding(.horizontal, 4)
                     .background(.black)
-                    .offset(x: 7)
+                    .offset(x: 39)
                 if isToday {
                     Text(now.formatted(.dateTime.hour().minute()))
                         .font(.system(size: 9, weight: .semibold, design: .monospaced))
                         .padding(.horizontal, 4)
                         .background(.red, in: Capsule())
-                        .offset(x: max(0, progress - 18))
+                        .offset(x: min(max(0, progress - 18), day.width - 52))
                 }
             }
             .frame(width: day.width, height: 16, alignment: .topLeading)
@@ -356,13 +362,13 @@ private struct HomeCalendarDayLane: View {
     }
 
     private func position(_ date: Date) -> Double {
-        CalendarTimelineGeometry.position(of: date, in: day.interval, pointsPerHour: HomeCalendarGeometry.pointsPerHour)
+        CalendarTimelineGeometry.position(of: date, in: day.visibleInterval, pointsPerHour: HomeCalendarGeometry.pointsPerHour)
     }
 
     private func tickLabel(_ tick: Date) -> String {
         let format = Date.FormatStyle.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)
         let label = tick.formatted(format)
-        let repeats = CalendarTimelineGeometry.hourTicks(in: day.interval).dropLast().filter { $0.formatted(format) == label }.count > 1
+        let repeats = CalendarTimelineGeometry.hourTicks(in: day.visibleInterval).dropLast().filter { $0.formatted(format) == label }.count > 1
         return repeats ? "\(label) \(TimeZone.current.abbreviation(for: tick) ?? "")" : label
     }
 
