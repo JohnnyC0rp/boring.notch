@@ -6,6 +6,7 @@ import SwiftUI
 @MainActor
 struct HomeCalendarTimelineView: View {
     let showMonth: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var manager = CalendarManager.shared
     @ObservedObject private var coordinator = BoringViewCoordinator.shared
     @Default(.hideAllDayEvents) private var hideAllDayEvents
@@ -14,6 +15,10 @@ struct HomeCalendarTimelineView: View {
     @State private var displayedDate: Date
     @State private var targetDate: Date
     @State private var resetID = 0
+    @State private var centerTarget: Bool
+    @State private var awaitingHighlight = false
+    @State private var highlightID = 0
+    @State private var highlightNow = false
     @State private var reloadID = 0
     @State private var events: [EventModel] = []
     @State private var selectedEvent: EventModel?
@@ -28,6 +33,7 @@ struct HomeCalendarTimelineView: View {
         _windowCenter = State(initialValue: date)
         _displayedDate = State(initialValue: date)
         _targetDate = State(initialValue: Self.initialPosition(for: date))
+        _centerTarget = State(initialValue: Defaults[.autoScrollToNextEvent] && Calendar.current.isDateInToday(date))
     }
 
     private var days: [HomeCalendarGeometry.Day] {
@@ -52,17 +58,24 @@ struct HomeCalendarTimelineView: View {
             if hasAccess {
                 ZStack {
                     TimelineView(.periodic(from: .now, by: 30)) { context in
-                        HomeCalendarScrollView(days: days, targetDay: displayedDate, targetDate: targetDate, resetID: resetID,
+                        HomeCalendarScrollView(days: days, targetDay: displayedDate, targetDate: targetDate, resetID: resetID, centerTarget: centerTarget, onPositioned: didPosition,
                                                height: 100, onScroll: didScroll) {
                             HStack(spacing: HomeCalendarGeometry.daySpacing) {
                                 ForEach(days) { day in
-                                    HomeCalendarDayLane(day: day, events: timedEvents(on: day.interval), now: context.date) {
+                                    HomeCalendarDayLane(day: day, events: timedEvents(on: day.interval), now: context.date, highlightNow: highlightNow,
+                                                        gapMarkerOffset: HomeCalendarGeometry.gapOffset(of: context.date, in: days).map { $0 - HomeCalendarGeometry.offset(of: day.id, in: days) }) {
                                         selectedEvent = $0
                                     }
                                 }
                             }
                             .frame(height: 100)
                             .background(.black)
+                            .overlay(alignment: .topLeading) {
+                                if let position = HomeCalendarGeometry.gapOffset(of: context.date, in: days) {
+                                    HomeCalendarGapTimeMarker(now: context.date, highlighted: highlightNow)
+                                        .offset(x: position - 30)
+                                }
+                            }
                         }
                     }
                     if let selectedEvent {
@@ -79,6 +92,13 @@ struct HomeCalendarTimelineView: View {
         .frame(height: 130, alignment: .top)
         .calendarTodayShortcut { jump(to: Date(), showCurrentTime: true) }
         .task(id: requestID) { await reload() }
+        .task(id: highlightID) {
+            guard highlightID > 0 else { return }
+            highlightNow = true
+            do { try await Task.sleep(for: .milliseconds(700)) } catch { return }
+            if reduceMotion { highlightNow = false }
+            else { withAnimation(.easeOut(duration: 0.45)) { highlightNow = false } }
+        }
         .onChange(of: manager.selectedCalendarIDs) { _, _ in reloadID += 1 }
         .onChange(of: coordinator.calendarDate) { _, date in
             if !Calendar.current.isDate(date, inSameDayAs: displayedDate) { jump(to: date) }
@@ -160,6 +180,7 @@ struct HomeCalendarTimelineView: View {
 
     private func didScroll(to date: Date) {
         pendingInitialPosition = false
+        awaitingHighlight = false
         if !Calendar.current.isDate(date, inSameDayAs: displayedDate) {
             displayedDate = date
             coordinator.calendarDate = date
@@ -169,20 +190,28 @@ struct HomeCalendarTimelineView: View {
         }
     }
 
+    private func didPosition() {
+        guard awaitingHighlight, !loading, !pendingInitialPosition else { return }
+        awaitingHighlight = false
+        highlightID += 1
+    }
+
     private func jump(to date: Date, showCurrentTime: Bool = false) {
         let needsReload = !Calendar.current.isDate(date, inSameDayAs: windowCenter)
         selectedEvent = nil
         displayedDate = date
         windowCenter = date
         coordinator.calendarDate = date
-        targetDate = showCurrentTime ? Date().addingTimeInterval(-3600) : Self.initialPosition(for: date)
+        targetDate = showCurrentTime ? Date() : Self.initialPosition(for: date)
+        centerTarget = showCurrentTime || (Defaults[.autoScrollToNextEvent] && Calendar.current.isDateInToday(date))
+        awaitingHighlight = showCurrentTime
         pendingInitialPosition = !showCurrentTime || loading || needsReload
         resetID += 1
     }
 
     private static func initialPosition(for date: Date) -> Date {
         if Defaults[.autoScrollToNextEvent] && Calendar.current.isDateInToday(date) {
-            return Date().addingTimeInterval(-3600)
+            return Date()
         }
         return Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: date) ?? date
     }
@@ -237,6 +266,8 @@ private struct HomeCalendarDayLane: View {
     let day: HomeCalendarGeometry.Day
     let events: [EventModel]
     let now: Date
+    let highlightNow: Bool
+    let gapMarkerOffset: Double?
     let select: (EventModel) -> Void
 
     private var layout: [CalendarTimelineGeometry.Placement] {
@@ -282,7 +313,9 @@ private struct HomeCalendarDayLane: View {
                     .help("\(group.events.count) more overlapping events")
                 }
                 if isToday {
-                    Rectangle().fill(.red).frame(width: 1.5).offset(x: progress)
+                    Rectangle().fill(.red).frame(width: 1.5)
+                        .overlay { Rectangle().fill(.red.opacity(highlightNow ? 0.18 : 0)).frame(width: 9) }
+                        .offset(x: progress)
                         .allowsHitTesting(false)
                 }
             }
@@ -292,6 +325,7 @@ private struct HomeCalendarDayLane: View {
                     Text(tickLabel(tick))
                         .font(.system(size: 9, weight: .medium, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.4))
+                        .opacity(isTickUnderGapMarker(tick) ? 0 : 1)
                         .offset(x: min(position(tick) + 4, day.width - 34))
                 }
                 Text(day.interval.start.formatted(.dateTime.weekday(.abbreviated).day()).uppercased())
@@ -305,6 +339,7 @@ private struct HomeCalendarDayLane: View {
                         .font(.system(size: 9, weight: .semibold, design: .monospaced))
                         .padding(.horizontal, 4)
                         .background(.red, in: Capsule())
+                        .overlay { Capsule().stroke(.white.opacity(highlightNow ? 0.9 : 0), lineWidth: 1) }
                         .offset(x: min(max(0, progress - 18), day.width - 52))
                 }
             }
@@ -365,6 +400,12 @@ private struct HomeCalendarDayLane: View {
         CalendarTimelineGeometry.position(of: date, in: day.visibleInterval, pointsPerHour: HomeCalendarGeometry.pointsPerHour)
     }
 
+    private func isTickUnderGapMarker(_ tick: Date) -> Bool {
+        guard let gapMarkerOffset else { return false }
+        let leading = min(position(tick) + 4, day.width - 34)
+        return leading < gapMarkerOffset + 30 && leading + 34 > gapMarkerOffset - 30
+    }
+
     private func tickLabel(_ tick: Date) -> String {
         let format = Date.FormatStyle.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)
         let label = tick.formatted(format)
@@ -391,6 +432,27 @@ private struct HomeCalendarDayLane: View {
             }
         }
         return groups
+    }
+}
+
+private struct HomeCalendarGapTimeMarker: View {
+    let now: Date
+    let highlighted: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Rectangle().fill(.red).frame(width: 1.5, height: 80)
+                .overlay { Rectangle().fill(.red.opacity(highlighted ? 0.18 : 0)).frame(width: 9) }
+            Text(now.formatted(.dateTime.hour().minute()))
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .fixedSize()
+                .padding(.horizontal, 4)
+                .background(.red, in: Capsule())
+                .overlay { Capsule().stroke(.white.opacity(highlighted ? 0.9 : 0), lineWidth: 1) }
+        }
+        .frame(width: 60, height: 100, alignment: .top)
+        .allowsHitTesting(false)
+        .accessibilityLabel("Current time \(now.formatted(date: .omitted, time: .shortened)), between displayed day ranges")
     }
 }
 
