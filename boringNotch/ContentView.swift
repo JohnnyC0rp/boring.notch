@@ -659,39 +659,6 @@ struct ContentView: View {
         )
     }
 
-    @ViewBuilder
-    func BoringFaceAnimation() -> some View {
-        HStack {
-            Rectangle()
-                .fill(.black)
-                .frame(width: vm.closedNotchSize.width + 20)
-            let faceScale = min(1.0, displayClosedNotchHeight / 30.0)
-            if codexAvatarStyle == .smile {
-                AnimatedFace(height: 24.0 * faceScale, width: 30.0 * faceScale)
-            } else {
-                codexAvatar.scaleEffect(faceScale)
-                    .frame(width: 30 * faceScale, height: 24 * faceScale)
-            }
-        }.frame(
-            height: displayClosedNotchHeight,
-            alignment: .center
-        )
-    }
-
-    private var codexAvatar: some View {
-        CodexAvatarView(style: codexAvatarStyle, isActive: codexActivity.isActive)
-            .overlay(alignment: .bottomTrailing) {
-                if codexActivity.phase == .waiting || codexActivity.phase == .error {
-                    Circle().fill(codexActivity.phase == .waiting ? Color.orange : .red)
-                        .frame(width: 5, height: 5)
-                        .overlay(Circle().stroke(.black, lineWidth: 1))
-                }
-            }
-            .help(codexActivity.statusText)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(codexActivity.statusText)
-    }
-
     /// True while the song-change peek is expanding the closed pill inline.
     private var showingInlineMusicPeek: Bool {
         coordinator.expandingView.show
@@ -1050,6 +1017,41 @@ struct ContentView: View {
         case .open:
             return coordinator.currentView == .home && !musicManager.isPlayerIdle && isHoveringMusicArea
         }
+    }
+}
+
+extension ContentView {
+    @ViewBuilder
+    func BoringFaceAnimation() -> some View {
+        HStack {
+            Rectangle()
+                .fill(.black)
+                .frame(width: vm.closedNotchSize.width + 20)
+            let faceScale = min(1.0, displayClosedNotchHeight / 30.0)
+            if codexAvatarStyle == .smile {
+                AnimatedFace(height: 24.0 * faceScale, width: 30.0 * faceScale)
+            } else {
+                codexAvatar.scaleEffect(faceScale)
+                    .frame(width: 30 * faceScale, height: 24 * faceScale)
+            }
+        }.frame(
+            height: displayClosedNotchHeight,
+            alignment: .center
+        )
+    }
+
+    private var codexAvatar: some View {
+        CodexAvatarView(style: codexAvatarStyle, isActive: codexActivity.isActive)
+            .overlay(alignment: .bottomTrailing) {
+                if codexActivity.phase == .waiting || codexActivity.phase == .error {
+                    Circle().fill(codexActivity.phase == .waiting ? Color.orange : .red)
+                        .frame(width: 5, height: 5)
+                        .overlay(Circle().stroke(.black, lineWidth: 1))
+                }
+            }
+            .help(codexActivity.statusText)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(codexActivity.statusText)
     }
 }
 
