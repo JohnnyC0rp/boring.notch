@@ -21,6 +21,7 @@ enum NotchState {
 enum NotchViews {
     case home
     case clipboard
+    case calendar
     case shelf
 }
 

@@ -42,6 +42,7 @@ struct ContentView: View {
 
     @Default(.showNotHumanFace) var showNotHumanFace
     @Default(.codexAvatarStyle) private var codexAvatarStyle
+    @Default(.showCalendar) private var showCalendar
 
     // Use standardized animations from StandardAnimations enum
     private let animationSpring = StandardAnimations.interactive
@@ -307,6 +308,13 @@ struct ContentView: View {
                                 }
                             }
                         }
+                    }
+                    .onChange(of: coordinator.currentView) { _, view in
+                        guard vm.notchState == .open else { return }
+                        withAnimation(.smooth(duration: 0.2)) { vm.notchSize = notchOpenSize(for: view) }
+                    }
+                    .onChange(of: showCalendar) { _, enabled in
+                        if !enabled && coordinator.currentView == .calendar { coordinator.currentView = .home }
                     }
                     .onChange(of: vm.notchState) { _, newState in
                         if newState == .closed && isHovering {
@@ -588,6 +596,8 @@ struct ContentView: View {
                                 dropInteraction: vm.dropInteraction,
                                 animation: vm.animation
                             )
+                        case .calendar:
+                            CalendarTimelineView()
                         }
                     }
                 }

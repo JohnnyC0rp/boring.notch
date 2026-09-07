@@ -17,6 +17,7 @@ struct TabModel: Identifiable {
 
 let tabs = [
     TabModel(label: "Home", icon: "house.fill", view: .home),
+    TabModel(label: "Calendar", icon: "calendar", view: .calendar),
     TabModel(label: "Clipboard", icon: "doc.on.clipboard", view: .clipboard),
     TabModel(label: "Shelf", icon: "tray.fill", view: .shelf)
 ]
@@ -25,16 +26,21 @@ struct TabSelectionView: View {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @ObservedObject private var shelfState = ShelfStateViewModel.shared
     @Default(.boringShelf) private var shelfEnabled
+    @Default(.showCalendar) private var showCalendar
     @Namespace var animation
+    private var visibleTabs: [TabModel] {
+        tabs.filter { ($0.view != .calendar || showCalendar) && ($0.view != .shelf || (shelfEnabled && (!shelfState.isEmpty || coordinator.alwaysShowTabs))) }
+    }
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(tabs.filter { $0.view != .shelf || (shelfEnabled && (!shelfState.isEmpty || coordinator.alwaysShowTabs)) }) { tab in
+            ForEach(visibleTabs) { tab in
                     TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view) {
                         withAnimation(.smooth) {
                             coordinator.currentView = tab.view
                         }
                     }
                     .frame(height: 26)
+                    .help(tab.label)
                     .foregroundStyle(tab.view == coordinator.currentView ? .white : .gray)
                     .background {
                         if tab.view == coordinator.currentView {
