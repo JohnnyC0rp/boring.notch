@@ -84,12 +84,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private var windowScreenDidChangeObserver: Any?
     private var dragDetectors: [String: DragDetector] = [:] // UUID -> DragDetector
     private var observers: [Any] = []
+    private var codexActivityPreferences: [AnyCancellable] = []
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        codexActivityPreferences.forEach { $0.cancel() }
+        codexActivityPreferences.removeAll()
         CodexActivityManager.shared.stopMonitoring()
         // Flush debounced shelf persistence to avoid losing recent changes
         ShelfStateViewModel.shared.flushSync()
@@ -312,8 +315,25 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         window.alphaValue = 1
     }
 
+    @MainActor
+    private func updateCodexActivityMonitoring() {
+        if Defaults[.codexAutomaticAvatar] || Defaults[.codexAvatarStyle] != .smile {
+            CodexActivityManager.shared.startMonitoring()
+        } else {
+            CodexActivityManager.shared.stopMonitoring()
+        }
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
-        CodexActivityManager.shared.startMonitoring()
+        codexActivityPreferences = [
+            Defaults.publisher(.codexAutomaticAvatar).sink { [weak self] _ in
+                Task { @MainActor in self?.updateCodexActivityMonitoring() }
+            },
+            Defaults.publisher(.codexAvatarStyle).sink { [weak self] _ in
+                Task { @MainActor in self?.updateCodexActivityMonitoring() }
+            }
+        ]
+        updateCodexActivityMonitoring()
 
         NotificationCenter.default.addObserver(
             self,

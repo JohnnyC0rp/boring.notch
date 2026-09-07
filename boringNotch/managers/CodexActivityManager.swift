@@ -43,8 +43,14 @@ final class CodexActivityManager: ObservableObject {
     func stopMonitoring() {
         monitoringTask?.cancel()
         monitoringTask = nil
-        activeCount = 0
-        phase = .offline
+        apply(nil)
+    }
+
+    func apply(_ snapshot: CodexActivitySnapshot?, at now: Date = Date()) {
+        let nextPhase = snapshot?.validatedPhase(at: now) ?? .offline
+        let nextCount = nextPhase.isInProgress ? snapshot?.activeCount ?? 0 : 0
+        if activeCount != nextCount { activeCount = nextCount }
+        if phase != nextPhase { phase = nextPhase }
     }
 
     private func refresh() async {
@@ -53,19 +59,14 @@ final class CodexActivityManager: ObservableObject {
             guard !Task.isCancelled else { return }
             guard let response = response as? HTTPURLResponse,
                   response.statusCode == 200, data.count <= 4096 else {
-                activeCount = 0
-                phase = .offline
+                apply(nil)
                 return
             }
-            let snapshot = try JSONDecoder().decode(CodexActivitySnapshot.self, from: data)
-            let validatedPhase = snapshot.validatedPhase(at: Date())
-            activeCount = validatedPhase.isInProgress ? snapshot.activeCount : 0
-            phase = validatedPhase
+            apply(try JSONDecoder().decode(CodexActivitySnapshot.self, from: data))
         } catch {
             guard !Task.isCancelled else { return }
             // A disconnected bird stays still instead of pretending to be busy.
-            activeCount = 0
-            phase = .offline
+            apply(nil)
         }
     }
 }
