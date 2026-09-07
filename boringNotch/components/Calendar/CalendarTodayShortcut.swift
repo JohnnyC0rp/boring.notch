@@ -53,18 +53,36 @@ final class CalendarTodayKeyView: NSView {
         super.viewDidMoveToWindow()
         removeMonitor()
         guard let window else { return }
-        monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self, weak window] event in
-            guard let self, let window,
-                  CalendarTodayShortcutRouting.shouldHandle(event, in: window) else { return event }
-            if !event.isARepeat { self.action() }
-            return nil
+        monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel]) { [weak self] event in
+            guard let self else { return event }
+            return self.handleLocalEvent(event)
         }
         DispatchQueue.main.async { [weak self, weak window] in
             guard let self, let window, self.window === window, self.monitor != nil else { return }
             // Claim only this panel; the application behind it keeps its place.
-            window.makeKey()
-            window.makeFirstResponder(self)
+            self.claimCalendarFocus(in: window)
         }
+    }
+
+    func handleLocalEvent(_ event: NSEvent) -> NSEvent? {
+        guard monitor != nil, let window, event.window === window else { return event }
+        switch event.type {
+        case .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel:
+            claimCalendarFocus(in: window)
+            return event
+        default:
+            guard CalendarTodayShortcutRouting.shouldHandle(event, in: window) else { return event }
+            if !event.isARepeat { action() }
+            return nil
+        }
+    }
+
+    private func claimCalendarFocus(in window: NSWindow) {
+        if !window.isKeyWindow { window.makeKey() }
+        if let text = window.firstResponder as? NSTextView,
+           text.window === window, !text.isEditable, !text.isHiddenOrHasHiddenAncestor { return }
+        // Calendar has selectable details, but no editor; an old Clipboard editor must let go.
+        window.makeFirstResponder(self)
     }
 
     func removeMonitor() {
