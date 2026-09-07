@@ -15,11 +15,19 @@ struct TabButton: View {
     
     var body: some View {
         Button(action: onClick) {
-            Image(systemName: icon)
-                .padding(.horizontal, 15)
+            HStack(spacing: 5) {
+                Image(systemName: icon)
+                if selected && (label == "Calendar" || label == "Clipboard") {
+                    Text(label).font(.system(size: 11, weight: .semibold))
+                }
+            }
+                .padding(.horizontal, 5)
+                .frame(height: 26)
                 .contentShape(Capsule())
         }
         .buttonStyle(PlainButtonStyle())
+        .accessibilityLabel(label)
+        .help(label)
     }
 }
 

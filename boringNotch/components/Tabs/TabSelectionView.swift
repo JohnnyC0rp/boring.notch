@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Defaults
 
 struct TabModel: Identifiable {
     let id = UUID()
@@ -16,6 +17,8 @@ struct TabModel: Identifiable {
 
 let tabs = [
     TabModel(label: "Home", icon: "house.fill", view: .home),
+    TabModel(label: "Calendar", icon: "calendar", view: .calendar),
+    TabModel(label: "Clipboard", icon: "doc.on.clipboard", view: .clipboard),
     TabModel(label: "Shelf", icon: "tray.fill", view: .shelf)
 ]
 
@@ -24,7 +27,7 @@ struct TabSelectionView: View {
     @Namespace var animation
     var body: some View {
         HStack(spacing: 0) {
-            ForEach(tabs) { tab in
+            ForEach(tabs.filter { $0.view != .shelf || Defaults[.boringShelf] }) { tab in
                     TabButton(label: tab.label, icon: tab.icon, selected: coordinator.currentView == tab.view) {
                         withAnimation(.smooth) {
                             coordinator.currentView = tab.view
