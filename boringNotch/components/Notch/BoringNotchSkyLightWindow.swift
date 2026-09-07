@@ -146,6 +146,11 @@ class BoringNotchSkyLightWindow: NSPanel {
         }
     }
     
-    override var canBecomeKey: Bool { BoringViewCoordinator.shared.currentView == .clipboard }
+    override var canBecomeKey: Bool {
+        switch BoringViewCoordinator.shared.currentView {
+        case .home, .calendar, .clipboard: return true
+        case .shelf: return false
+        }
+    }
     override var canBecomeMain: Bool { false }
 }
