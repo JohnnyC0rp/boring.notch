@@ -1,8 +1,17 @@
 # Local Codex activity
 
-The optional Codex activity avatar follows unfinished tasks in Codex Desktop. It animates while at least one task is running or waiting for input and remains still when all observed tasks finish, the connection is unavailable, or the desktop reports an error. An amber dot marks input or approval requests; a red dot marks an error. macOS Reduce Motion keeps the artwork still.
+The optional Codex activity avatar follows the validated count of unfinished tasks in Codex Desktop, including tasks waiting for input or approval. It automatically selects an avatar by task count. Completed, unavailable, stale, invalid and error states return to the existing Smile. An amber dot marks input or approval requests; a red dot marks an error. macOS Reduce Motion keeps the task glyphs still.
 
-Appearance settings offer the existing Smile plus three original geometric choices: Orbit, Lines and Colorful orbit. The selected activity glyph appears in the idle avatar slot and beside paused music. Playing music and notification presentation keep their existing behavior. Smile remains the default, and local activity monitoring is disabled initially.
+| Tasks in progress | Automatic avatar | Rotation speed |
+| --- | --- | --- |
+| 0 or unavailable | Existing Smile | Existing behavior |
+| 1–2 | Lines | 1× |
+| 3 | Orbit | 1× |
+| 4 or more | Colorful orbit | 1.15× at 4, increasing toward 2.5× |
+
+For four or more tasks, the speed multiplier is `1.15 + 1.35 × (count − 4) / (count − 4 + 6)`. Speed changes preserve the current rotation angle. Waiting tasks count toward the same tiers as running tasks.
+
+The automatic avatar appears in the idle slot and beside paused music when live monitoring is enabled. The manual picker remains available when monitoring is off and during the three-second Preview. Playing music and notification presentation keep their existing behavior. Smile remains the manual default, and local activity monitoring is disabled initially.
 
 ## Setup
 
@@ -20,7 +29,7 @@ The bridge runs in the named tmux session `boringnotch-codex-activity`. The star
 tmux attach -t boringnotch-codex-activity
 ```
 
-In **Settings → Appearance → Idle avatar**, enable the avatar, select an original glyph, and enable **Follow local Codex activity**. Preview plays the selected motion for three seconds without starting a Codex task.
+In **Settings → Appearance → Idle avatar**, enable the avatar and **Follow local Codex activity**. The follow toggle is available even when the manual choice is Smile. Live monitoring overrides the manual picker; Preview temporarily shows the manual choice at its normal speed for three seconds without starting a Codex task.
 
 Optional login startup is installed separately:
 
@@ -47,9 +56,9 @@ Stream version 11 snapshots and revision-checked patches are supported. The brid
 
 ## Artwork provenance
 
-Orbit, Lines and Colorful orbit are original SwiftUI drawings made from circular arcs, a center dot and rounded parallel bars. Their geometry, colors and constant-speed rotation are defined in `boringNotch/components/Notch/CodexAvatarView.swift` under this repository's GPL-3.0-only license. No OpenAI logo, recovered SVG, raster image, Lottie file, traced path or copied animation curve is included. The existing Smile artwork is unchanged.
+Orbit, Lines and Colorful orbit are original SwiftUI drawings made from circular arcs, a center dot and rounded parallel bars. Their geometry, colors and continuous rotation are defined in `boringNotch/components/Notch/CodexAvatarView.swift` under this repository's GPL-3.0-only license. No OpenAI logo, recovered SVG, raster image, Lottie file, traced path or copied animation curve is included. The existing Smile artwork is unchanged.
 
-All original glyphs use the same full-opacity rendering while active and idle. Only orientation changes; idle and Reduce Motion share the same visible resting frame.
+All original glyphs retain full opacity across state and speed changes. Reduce Motion pauses rotation at its current angle. Manual glyphs remain still when monitoring is off; automatic mode returns to Smile when no validated task is in progress.
 
 ## Validation
 
@@ -57,4 +66,4 @@ All original glyphs use the same full-opacity rendering while active and idle. O
 ./script/check-codex-activity.sh
 ```
 
-The checks use synthetic IPC messages and task IDs, validate phase/freshness handling, typecheck the native client, and render the original glyphs offscreen to compare resting, rotated and Reduce Motion states. They neither connect to Codex nor start the bridge. The app uses the standard `boringNotch` Xcode scheme.
+The checks use synthetic IPC messages and task IDs, validate phase/freshness handling and published counts, exercise tier boundaries and rotation continuity, typecheck the native client, and render counts 0, 1, 2, 3, 4, 8 and a large count offscreen alongside resting, rotated and Reduce Motion states. They neither connect to Codex nor start the bridge. The app uses the standard `boringNotch` Xcode scheme.
