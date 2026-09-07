@@ -4,8 +4,9 @@ import SwiftUI
 /// A frozen day gutter beside a shared two-axis timeline viewport.
 struct CalendarDayScrollView<Labels: View, Content: View>: NSViewRepresentable {
     let days: [CalendarDayStackGeometry.Day]
+    let visibleRanges: [DateInterval]
     let targetDay: Date
-    let targetX: CGFloat
+    let targetTime: Date
     let resetID: Int
     let onScroll: (CalendarDayStackGeometry.Position, Bool) -> Void
     @ViewBuilder let labels: () -> Labels
@@ -36,7 +37,7 @@ struct CalendarDayScrollView<Labels: View, Content: View>: NSViewRepresentable {
             let vertical = abs(origin.y - coordinator.lastOrigin.y) > 0.1
             let moved = vertical || abs(origin.x - coordinator.lastOrigin.x) > 0.1
             coordinator.lastOrigin = origin
-            guard moved, !coordinator.updating,
+            guard moved, !coordinator.updating, !container.scrollView.applyingPendingPosition,
                   let position = CalendarDayStackGeometry.position(at: origin.y, in: coordinator.days) else { return }
             coordinator.onScroll?(position, vertical)
         }
@@ -45,24 +46,32 @@ struct CalendarDayScrollView<Labels: View, Content: View>: NSViewRepresentable {
 
     func updateNSView(_ container: CalendarDayScrollContainer, context: Context) {
         let coordinator = context.coordinator
-        let origin = container.scrollView.contentView.bounds.origin
+        let origin = container.scrollView.requestedOrigin
         let previousPosition = CalendarDayStackGeometry.position(at: origin.y, in: coordinator.days)
+        let oldRange = previousPosition.flatMap { coordinator.ranges[$0.day] }
+        let previousTime = oldRange.map { min($0.end, $0.start.addingTimeInterval(origin.x / CalendarDayStackGeometry.pointsPerHour * 3600)) }
+        let ranges = Dictionary(uniqueKeysWithValues: zip(days, visibleRanges).map { ($0.0.id, $0.1) })
         let changedWindow = coordinator.days.first?.id != days.first?.id
+        let changedRanges = coordinator.ranges != ranges
         let shouldReset = coordinator.resetID != resetID
         coordinator.updating = true
         coordinator.days = days
+        coordinator.ranges = ranges
         coordinator.resetID = resetID
         coordinator.onScroll = onScroll
-        let width = (days.map { $0.interval.duration }.max() ?? 86400) / 3600 * CalendarDayStackGeometry.pointsPerHour
+        let width = (visibleRanges.map(\.duration).max() ?? 12 * 3600) / 3600 * CalendarDayStackGeometry.pointsPerHour
         let height = CalendarDayStackGeometry.documentHeight(for: days)
         coordinator.hosting?.rootView = content()
         coordinator.hosting?.frame = NSRect(x: 0, y: 0, width: width, height: height)
         coordinator.labelHosting?.rootView = labels()
         coordinator.labelHosting?.frame = NSRect(x: 0, y: 0, width: 47, height: height)
-        if changedWindow || shouldReset {
+        if changedWindow || changedRanges || shouldReset {
             let position = shouldReset ? CalendarDayStackGeometry.Position(day: targetDay, intraDayOffset: 0)
                 : previousPosition ?? .init(day: targetDay, intraDayOffset: 0)
-            container.scrollView.move(to: NSPoint(x: shouldReset ? targetX : origin.x,
+            let time = shouldReset ? targetTime : previousTime ?? targetTime
+            let range = ranges[position.day] ?? visibleRanges.first
+            let x = range.map { CalendarTimelineGeometry.position(of: time, in: $0, pointsPerHour: CalendarDayStackGeometry.pointsPerHour) } ?? 0
+            container.scrollView.move(to: NSPoint(x: x,
                                                  y: CalendarDayStackGeometry.offset(of: position, in: days)))
         }
         let updatedOrigin = container.scrollView.contentView.bounds.origin
@@ -83,6 +92,7 @@ struct CalendarDayScrollView<Labels: View, Content: View>: NSViewRepresentable {
         var hosting: NSHostingView<Content>?
         var labelHosting: NSHostingView<Labels>?
         var days: [CalendarDayStackGeometry.Day] = []
+        var ranges: [Date: DateInterval] = [:]
         var resetID: Int?
         var observer: NSObjectProtocol?
         var updating = false
@@ -118,12 +128,27 @@ final class CalendarDayScrollContainer: NSView {
         super.layout()
         gutter.frame = NSRect(x: 0, y: 0, width: 47, height: bounds.height)
         scrollView.frame = NSRect(x: 55, y: 0, width: max(0, bounds.width - 55), height: bounds.height)
+        scrollView.needsLayout = true
+        scrollView.layoutSubtreeIfNeeded()
     }
 
     override func scrollWheel(with event: NSEvent) { scrollView.scrollWheel(with: event) }
 }
 
 final class CalendarDayNativeScrollView: NSScrollView {
+    private var pendingPosition: NSPoint?
+    private(set) var applyingPendingPosition = false
+    var requestedOrigin: NSPoint { pendingPosition ?? contentView.bounds.origin }
+
+    override func layout() {
+        super.layout()
+        if let point = pendingPosition, contentView.bounds.width > 0, contentView.bounds.height > 0 {
+            applyingPendingPosition = true
+            move(to: point)
+            applyingPendingPosition = false
+        }
+    }
+
     override func scrollWheel(with event: NSEvent) {
         let scale: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 12
         // Each axis keeps its job: days travel vertically, hours horizontally.
@@ -132,6 +157,11 @@ final class CalendarDayNativeScrollView: NSScrollView {
     }
 
     func move(to point: NSPoint) {
+        guard contentView.bounds.width > 0, contentView.bounds.height > 0 else {
+            pendingPosition = point
+            return
+        }
+        pendingPosition = nil
         let size = documentView?.frame.size ?? .zero
         let maximumX = max(0, size.width - contentView.bounds.width)
         let maximumY = max(0, size.height - contentView.bounds.height)

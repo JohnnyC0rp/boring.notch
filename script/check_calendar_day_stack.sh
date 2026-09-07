@@ -12,6 +12,7 @@ swiftc \
 "$test_directory/calendar-day-stack-tests"
 
 swiftc -parse-as-library \
+    "$repo_root/boringNotch/components/Calendar/CalendarTimelineGeometry.swift" \
     "$repo_root/boringNotch/components/Calendar/CalendarDayStackGeometry.swift" \
     "$repo_root/boringNotch/components/Calendar/CalendarDayScrollView.swift" \
     "$repo_root/tests/CalendarDayNativeScrollTests.swift" \
