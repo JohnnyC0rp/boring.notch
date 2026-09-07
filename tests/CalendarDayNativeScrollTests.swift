@@ -93,19 +93,19 @@ private final class CalendarDayScrollTestDocument: NSView {
         scrollView.scrollWheel(with: event(horizontal: -13, vertical: -20))
         expectOrigin(813, maximumY, "A clamped vertical axis does not swallow horizontal movement")
 
-        let container = CalendarDayScrollContainer(frame: NSRect(x: 0, y: 0, width: 600, height: 202))
+        let container = CalendarDayScrollContainer(frame: NSRect(x: 0, y: 0, width: 600, height: 204))
         container.needsLayout = true
         container.layoutSubtreeIfNeeded()
         expect(container.scrollView.hasVerticalScroller, "The day list exposes a vertical scroller")
-        expect(container.gutter.frame == NSRect(x: 0, y: 0, width: 47, height: 202),
-               "Day labels retain their fixed 47-point gutter")
-        expect(container.scrollView.frame == NSRect(x: 55, y: 0, width: 545, height: 202),
+        expect(container.gutter.frame == NSRect(x: 0, y: 0, width: 68, height: 204),
+               "Day labels retain their fixed 68-point gutter")
+        expect(container.scrollView.frame == NSRect(x: 76, y: 0, width: 524, height: 204),
                "The timeline fills the remaining viewport beside the day gutter")
 
         container.scrollView.documentView = CalendarDayScrollTestDocument(
             frame: NSRect(x: 0, y: 0, width: 2400, height: 1800))
         container.gutter.documentView = CalendarDayScrollTestDocument(
-            frame: NSRect(x: 0, y: 0, width: 47, height: 1800))
+            frame: NSRect(x: 0, y: 0, width: 68, height: 1800))
         container.scrollView.tile()
         container.scrollView.move(to: NSPoint(x: 800, y: 300))
         container.gutter.scroll(to: NSPoint(x: 0, y: 300))
@@ -139,26 +139,26 @@ private final class CalendarDayScrollTestDocument: NSView {
 
         let initial = CalendarDayNativeScrollView(frame: .zero)
         initial.borderType = .noBorder
-        initial.documentView = CalendarDayScrollTestDocument(frame: NSRect(x: 0, y: 0, width: 12 * 96, height: 730))
+        initial.documentView = CalendarDayScrollTestDocument(frame: NSRect(x: 0, y: 0, width: 12 * 96, height: 754))
         var initialCallbacks: [NSPoint] = []
-        initial.move(to: NSPoint(x: 12 * 96, y: 318)) {
+        initial.move(to: NSPoint(x: 12 * 96, y: 330)) {
             initialCallbacks.append(initial.contentView.bounds.origin)
         }
-        expect(initial.requestedOrigin == NSPoint(x: 12 * 96, y: 318),
+        expect(initial.requestedOrigin == NSPoint(x: 12 * 96, y: 330),
                "A Today reset after 19:00 is retained until the viewport has a size")
         expect(initialCallbacks.isEmpty, "A zero-size viewport does not complete an unapplied movement")
         initial.needsLayout = true
         initial.layoutSubtreeIfNeeded()
         expect(initialCallbacks.isEmpty, "Layout with no viewport size keeps the completion pending")
-        initial.frame = NSRect(x: 0, y: 0, width: 545, height: 202)
+        initial.frame = NSRect(x: 0, y: 0, width: 524, height: 204)
         initial.needsLayout = true
         initial.layoutSubtreeIfNeeded()
         expect(abs(initial.contentView.bounds.minX - (12 * 96 - initial.contentView.bounds.width)) < 0.01,
                "The first sized layout clamps a late Today reset to the visible daytime window")
-        expect(abs(initial.contentView.bounds.minY - 318) < 0.01,
+        expect(abs(initial.contentView.bounds.minY - 330) < 0.01,
                "Clamping a late hour never moves Today to a different day row")
         expect(initialCallbacks.count == 1, "The first sized layout completes the pending movement exactly once")
-        expect(initialCallbacks.first == NSPoint(x: 12 * 96 - initial.contentView.bounds.width, y: 318),
+        expect(initialCallbacks.first == NSPoint(x: 12 * 96 - initial.contentView.bounds.width, y: 330),
                "A deferred callback observes the final clamped hour and requested day")
         initial.needsLayout = true
         initial.layoutSubtreeIfNeeded()
@@ -168,7 +168,7 @@ private final class CalendarDayScrollTestDocument: NSView {
         let replacement = CalendarDayNativeScrollView(frame: .zero)
         replacement.borderType = .noBorder
         replacement.documentView = CalendarDayScrollTestDocument(
-            frame: NSRect(x: 0, y: 0, width: 12 * 96, height: 730))
+            frame: NSRect(x: 0, y: 0, width: 12 * 96, height: 754))
         var staleCallbackCount = 0
         var replacementCallbacks: [NSPoint] = []
         replacement.move(to: NSPoint(x: 40, y: 80)) { staleCallbackCount += 1 }
@@ -179,7 +179,7 @@ private final class CalendarDayScrollTestDocument: NSView {
                "Neither pending completion fires before the viewport is sized")
         expect(replacement.requestedOrigin == NSPoint(x: 100000, y: -100),
                "The newest pending movement replaces the stale requested position")
-        replacement.frame = NSRect(x: 0, y: 0, width: 545, height: 202)
+        replacement.frame = NSRect(x: 0, y: 0, width: 524, height: 204)
         replacement.needsLayout = true
         replacement.layoutSubtreeIfNeeded()
         expect(staleCallbackCount == 0 && replacementCallbacks.count == 1,

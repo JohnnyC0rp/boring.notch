@@ -68,7 +68,7 @@ struct CalendarDayScrollView<Labels: View, Content: View>: NSViewRepresentable {
         coordinator.hosting?.rootView = content()
         coordinator.hosting?.frame = NSRect(x: 0, y: 0, width: width, height: height)
         coordinator.labelHosting?.rootView = labels()
-        coordinator.labelHosting?.frame = NSRect(x: 0, y: 0, width: 47, height: height)
+        coordinator.labelHosting?.frame = NSRect(x: 0, y: 0, width: 68, height: height)
         if changedWindow || changedRanges || shouldReset {
             let position = shouldReset ? CalendarDayStackGeometry.Position(day: targetDay, intraDayOffset: 0)
                 : previousPosition ?? .init(day: targetDay, intraDayOffset: 0)
@@ -143,8 +143,8 @@ final class CalendarDayScrollContainer: NSView {
 
     override func layout() {
         super.layout()
-        gutter.frame = NSRect(x: 0, y: 0, width: 47, height: bounds.height)
-        scrollView.frame = NSRect(x: 55, y: 0, width: max(0, bounds.width - 55), height: bounds.height)
+        gutter.frame = NSRect(x: 0, y: 0, width: 68, height: bounds.height)
+        scrollView.frame = NSRect(x: 76, y: 0, width: max(0, bounds.width - 76), height: bounds.height)
         scrollView.needsLayout = true
         scrollView.layoutSubtreeIfNeeded()
     }
