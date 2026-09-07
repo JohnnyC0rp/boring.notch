@@ -2,7 +2,7 @@ import Foundation
 
 /// A rolling window with one continuous elapsed-time scale across calendar days.
 enum HomeCalendarGeometry {
-    static let pointsPerHour = 72.0
+    static let pointsPerHour = 96.0
 
     struct Day: Identifiable {
         let interval: DateInterval
