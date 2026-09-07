@@ -1,12 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-only
 
+import json
 from pathlib import Path
+import socket
+import struct
 import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "script"))
 from codex_activity_bridge import DesktopObserver
-from CodexActivityBridgeTests import snapshot
+from CodexActivityBridgeTests import patch, snapshot
 
 
 class SubscriptionTests(unittest.TestCase):
@@ -24,11 +27,36 @@ class SubscriptionTests(unittest.TestCase):
     def test_known_inactive_is_not_refreshed_without_a_file_change(self):
         self.observer.refresh_subscriptions({"one": 99}, 100)
         self.observer.projection.consume(snapshot("idle"), 101)
-        self.observer.unfollow("one")
         self.sent.clear()
         self.observer.refresh_subscriptions({"one": 99}, 160)
         self.assertEqual(self.sent, [])
+        self.assertIn("one", self.observer.subscribed)
         self.assertEqual(self.observer.projection.summary(160)["phase"], "idle")
+
+    def test_idle_task_resumes_from_runtime_patch_without_a_rollout_write(self):
+        self.observer.sock, writer = socket.socketpair()
+        self.addCleanup(writer.close)
+        self.addCleanup(self.observer.reset)
+        self.observer.refresh_subscriptions({"one": 99}, 100)
+
+        def deliver(message, now):
+            data = json.dumps(message).encode()
+            writer.sendall(struct.pack("<I", len(data)) + data)
+            self.observer.receive(now)
+
+        deliver(snapshot("idle"), 101)
+        self.assertIn("one", self.observer.subscribed)
+        self.sent.clear()
+        self.observer.refresh_subscriptions({"one": 99}, 160)
+        self.assertEqual(self.sent, [])
+        deliver(patch({"type": "active", "activeFlags": []}), 161)
+        self.assertEqual(self.observer.projection.summary(161)["activeCount"], 1)
+        self.assertIn("one", self.observer.subscribed)
+        deliver(patch({"type": "idle"}, base=2, revision=3), 162)
+        self.observer.refresh_subscriptions({"one": 99}, 220)
+        self.assertEqual(self.observer.projection.summary(220)["phase"], "idle")
+        self.assertIn("one", self.observer.subscribed)
+        self.assertEqual(self.sent, [])
 
     def test_resuming_an_old_task_refollows_after_its_mtime_changes(self):
         self.observer.refresh_subscriptions({"one": 99}, 100)
