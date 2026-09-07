@@ -6,6 +6,7 @@ import SwiftUI
 struct CodexAvatarView: View {
     let style: CodexAvatarStyle
     let isActive: Bool
+    var speedMultiplier: Double = 1
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -13,7 +14,7 @@ struct CodexAvatarView: View {
             if style == .smile {
                 MinimalFaceFeatures(height: 24, width: 30)
             } else {
-                NativeCodexAvatar(style: style, isActive: isActive, reduceMotion: reduceMotion)
+                NativeCodexAvatar(style: style, isActive: isActive, reduceMotion: reduceMotion, speedMultiplier: speedMultiplier)
             }
         }
         .frame(width: 30, height: 24)
@@ -25,11 +26,12 @@ private struct NativeCodexAvatar: NSViewRepresentable {
     let style: CodexAvatarStyle
     let isActive: Bool
     let reduceMotion: Bool
+    let speedMultiplier: Double
 
     func makeNSView(context: Context) -> CodexAvatarNativeView { CodexAvatarNativeView() }
 
     func updateNSView(_ view: CodexAvatarNativeView, context: Context) {
-        view.update(style: style, isActive: isActive, reduceMotion: reduceMotion)
+        view.update(style: style, isActive: isActive, reduceMotion: reduceMotion, speedMultiplier: speedMultiplier)
     }
 
     static func dismantleNSView(_ view: CodexAvatarNativeView, coordinator: ()) {
@@ -45,6 +47,7 @@ private final class CodexAvatarNativeView: NSView {
     private var requestedActive = false
     private var reduceMotion = false
     private var spinning = false
+    private var speedMultiplier = 1.0
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -91,7 +94,7 @@ private final class CodexAvatarNativeView: NSView {
         reconcileAnimation()
     }
 
-    func update(style: CodexAvatarStyle, isActive: Bool, reduceMotion: Bool) {
+    func update(style: CodexAvatarStyle, isActive: Bool, reduceMotion: Bool, speedMultiplier: Double) {
         if self.style != style {
             stopAnimating()
             self.style = style
@@ -99,6 +102,7 @@ private final class CodexAvatarNativeView: NSView {
             colorfulArtwork.image = Self.resource("codex-iris-dark", extension: "png").flatMap(NSImage.init(contentsOf:))
         }
         requestedActive = isActive
+        self.speedMultiplier = speedMultiplier.isFinite ? min(2.5, max(1, speedMultiplier)) : 1
         self.reduceMotion = reduceMotion
         reconcileAnimation()
     }
@@ -110,6 +114,7 @@ private final class CodexAvatarNativeView: NSView {
         thinking.isHidden = style != .codex
         artwork.isHidden = style != .codexSpin
         colorfulArtwork.isHidden = style != .iris
+        if shouldAnimate && spinning && style == .iris { updateIrisSpeed() }
         guard shouldAnimate != spinning else { return }
         stopAnimating()
         guard shouldAnimate else { return }
@@ -128,6 +133,7 @@ private final class CodexAvatarNativeView: NSView {
             rotation.duration = 6
             rotation.repeatCount = .infinity
             colorfulArtwork.artworkLayer.add(rotation, forKey: "codexActivity")
+            updateIrisSpeed()
         default:
             break
         }
@@ -138,6 +144,26 @@ private final class CodexAvatarNativeView: NSView {
         thinking.stop()
         artwork.artworkLayer.removeAnimation(forKey: "codexActivity")
         colorfulArtwork.artworkLayer.removeAnimation(forKey: "codexActivity")
+        colorfulArtwork.artworkLayer.speed = 1
+        colorfulArtwork.artworkLayer.timeOffset = 0
+        colorfulArtwork.artworkLayer.beginTime = 0
+    }
+
+    private func updateIrisSpeed() {
+        Self.setSpeed(speedMultiplier, on: colorfulArtwork.artworkLayer, at: CACurrentMediaTime())
+    }
+
+    /// Retain local animation time when the count changes, so the iris never jumps backwards.
+    static func setSpeed(_ speed: Double, on layer: CALayer, at time: CFTimeInterval) {
+        guard layer.speed != Float(speed) else { return }
+        let localTime = layer.convertTime(time, from: nil)
+        let parentTime = layer.superlayer?.convertTime(time, from: nil) ?? time
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.beginTime = parentTime
+        layer.timeOffset = localTime
+        layer.speed = Float(speed)
+        CATransaction.commit()
     }
 
     private func addClickSpin() {

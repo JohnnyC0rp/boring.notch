@@ -11,6 +11,7 @@ import SwiftUI
 struct Appearance: View {
     @Default(.sliderColor) var sliderColor
     @Default(.codexAvatarStyle) private var codexAvatarStyle
+    @Default(.codexAutomaticAvatar) private var codexAutomaticAvatar
     @Default(.showNotHumanFace) private var showIdleAvatar
     @ObservedObject private var codexActivity = CodexActivityManager.shared
     @State private var previewAvatar = false
@@ -73,20 +74,30 @@ struct Appearance: View {
                 Defaults.Toggle(key: .showNotHumanFace) {
                     Text("Show avatar when music is idle or paused")
                 }
-                Picker("Avatar", selection: $codexAvatarStyle) {
+                Toggle("Choose avatar from active threads", isOn: $codexAutomaticAvatar)
+                    .disabled(!showIdleAvatar)
+                if codexAutomaticAvatar {
+                    Text("0: Smile · 1–2: Codex syncing · 3: Codex spin · 4+: Colorful iris. More threads gradually increase iris speed, up to 2.5×.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Picker(codexAutomaticAvatar ? "Preview avatar" : "Avatar", selection: $codexAvatarStyle) {
                     ForEach(CodexAvatarStyle.allCases) { style in
                         Text(style.displayName).tag(style)
                     }
                 }
                 .disabled(!showIdleAvatar)
-                if codexAvatarStyle != .smile {
+                if codexAutomaticAvatar || codexAvatarStyle != .smile {
                     HStack(spacing: 12) {
-                        CodexAvatarView(style: codexAvatarStyle, isActive: previewAvatar || codexActivity.isActive)
+                        CodexAvatarView(
+                            style: previewAvatar || !codexAutomaticAvatar ? codexAvatarStyle : CodexAvatarStyle(tier: codexActivity.level.tier),
+                            isActive: previewAvatar || codexActivity.isActive,
+                            speedMultiplier: previewAvatar || !codexAutomaticAvatar ? 1 : codexActivity.level.speedMultiplier
+                        )
                             .padding(6)
                             .background(.black, in: RoundedRectangle(cornerRadius: 9))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(codexActivity.statusText).font(.caption)
-                            Text("Moves during work and while waiting for input. Amber means attention is needed.")
+                            Text("Active counts include threads waiting for input. Amber means attention is needed.")
                                 .font(.caption2).foregroundStyle(.secondary)
                         }
                         Spacer()
