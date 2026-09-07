@@ -445,6 +445,7 @@ struct NotchHomeView: View {
     @ObservedObject var webcamManager = WebcamManager.shared
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var coordinator = BoringViewCoordinator.shared
+    @Default(.showMonthOnHome) private var showMonthOnHome
     let albumArtNamespace: Namespace.ID
     let horizontalMediaGestureFeedback: CGFloat
     @Binding var isHoveringMusicArea: Bool
@@ -469,7 +470,7 @@ struct NotchHomeView: View {
 
             if Defaults[.showCalendar] {
                 HomeCalendarView()
-                    .frame(width: shouldShowCamera ? 190 : 315)
+                    .frame(width: shouldShowCamera ? 190 : showMonthOnHome ? 240 : 315)
                     .onHover { isHovering in
                         vm.isHoveringCalendar = isHovering
                     }
