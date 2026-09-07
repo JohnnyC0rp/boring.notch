@@ -11,6 +11,11 @@ import SwiftUI
 struct AppearanceSettingsView: View {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @Default(.sliderColor) var sliderColor
+    @Default(.codexAvatarStyle) private var codexAvatarStyle
+    @Default(.codexActivityEnabled) private var codexActivityEnabled
+    @Default(.showNotHumanFace) private var showIdleAvatar
+    @ObservedObject private var codexActivity = CodexActivityManager.shared
+    @State private var previewAvatar = false
 
     let icons: [String] = ["logo2"]
     @State private var selectedIcon: String = "logo2"
@@ -69,11 +74,37 @@ struct AppearanceSettingsView: View {
             }
             Section {
                 Defaults.Toggle(key: .showNotHumanFace) {
-                    Text("Show cool face animation while inactive")
+                    Text("Show avatar when music is idle or paused")
+                }
+                Picker("Avatar", selection: $codexAvatarStyle) {
+                    ForEach(CodexAvatarStyle.allCases) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+                .disabled(!showIdleAvatar)
+                if codexAvatarStyle != .smile {
+                    Toggle("Follow local Codex activity", isOn: $codexActivityEnabled)
+                    Text("Requires the optional local activity bridge. Moves while tasks run or wait for input; stays still when idle or disconnected.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    HStack(spacing: 12) {
+                        CodexAvatarView(style: codexAvatarStyle, isActive: previewAvatar || codexActivity.isActive)
+                            .padding(6)
+                            .background(.black, in: RoundedRectangle(cornerRadius: 9))
+                        Text(codexActivityEnabled ? codexActivity.statusText : "Live activity is off")
+                            .font(.caption)
+                        Spacer()
+                        Button("Preview") { previewAvatar = true }
+                            .disabled(previewAvatar)
+                    }
+                    .task(id: previewAvatar) {
+                        guard previewAvatar else { return }
+                        do { try await Task.sleep(for: .seconds(3)) } catch { return }
+                        previewAvatar = false
+                    }
                 }
             } header: {
                 HStack {
-                    Text("Additional features")
+                    Text("Idle avatar")
                 }
             }
         }

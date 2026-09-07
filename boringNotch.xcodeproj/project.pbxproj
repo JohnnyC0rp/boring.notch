@@ -187,6 +187,10 @@
 		7E8F2E08A70E45DB414082BF /* ClipboardHistoryItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF5964ACD15CAA748B436785 /* ClipboardHistoryItem.swift */; };
 		661E393E179FB4E62CEB5A9C /* ClipboardHistoryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3DACC5BAC3EB2C515097EC /* ClipboardHistoryManager.swift */; };
 		76CFAEC83E8EDA3DB5C9031E /* ClipboardHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06501035487CC2F9C7E085B1 /* ClipboardHistoryView.swift */; };
+		C022B217ECA240DC89109C56 /* CodexActivityPhase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 839AD34FBA3D49CF88346DC1 /* CodexActivityPhase.swift */; };
+		7E50CB481BE2473D94DB6677 /* CodexAvatarStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4960F4D9CCAC4DFDADAFBBED /* CodexAvatarStyle.swift */; };
+		3D5A7835217B477E9A6B86BC /* CodexActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F612887E3434E83A1783A35 /* CodexActivityManager.swift */; };
+		6C4FABF3913243E3B9B72FAD /* CodexAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD8251A3D6BB456986A08C42 /* CodexAvatarView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -405,6 +409,10 @@
 		FF5964ACD15CAA748B436785 /* ClipboardHistoryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardHistoryItem.swift; sourceTree = "<group>"; };
 		4B3DACC5BAC3EB2C515097EC /* ClipboardHistoryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardHistoryManager.swift; sourceTree = "<group>"; };
 		06501035487CC2F9C7E085B1 /* ClipboardHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardHistoryView.swift; sourceTree = "<group>"; };
+		839AD34FBA3D49CF88346DC1 /* CodexActivityPhase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexActivityPhase.swift; sourceTree = "<group>"; };
+		4960F4D9CCAC4DFDADAFBBED /* CodexAvatarStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexAvatarStyle.swift; sourceTree = "<group>"; };
+		7F612887E3434E83A1783A35 /* CodexActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexActivityManager.swift; sourceTree = "<group>"; };
+		DD8251A3D6BB456986A08C42 /* CodexAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexAvatarView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -692,6 +700,7 @@
 			isa = PBXGroup;
 			children = (
 				4B3DACC5BAC3EB2C515097EC /* ClipboardHistoryManager.swift */,
+				7F612887E3434E83A1783A35 /* CodexActivityManager.swift */,
 				11DB26652EDD0BE1001EA0CF /* LyricsService.swift */,
 				11D58EA12E760AE100FA8377 /* ImageService.swift */,
 				F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */,
@@ -825,6 +834,8 @@
 			isa = PBXGroup;
 			children = (
 				FF5964ACD15CAA748B436785 /* ClipboardHistoryItem.swift */,
+				839AD34FBA3D49CF88346DC1 /* CodexActivityPhase.swift */,
+				4960F4D9CCAC4DFDADAFBBED /* CodexAvatarStyle.swift */,
 				11F748812ECB07A400F841DB /* MusicControlButton.swift */,
 				118D1FD02E98FF5F00A2FF63 /* SharingStateManager.swift */,
 				1163988E2DF5CC870052E6AF /* CalendarModel.swift */,
@@ -913,6 +924,7 @@
 		B186542F2C6F455E000B926A /* Notch */ = {
 			isa = PBXGroup;
 			children = (
+				DD8251A3D6BB456986A08C42 /* CodexAvatarView.swift */,
 				AA01NLA22E7A0001 /* NotificationLiveActivity.swift */,
 				AA06CHV22E7A0001 /* CompactHomeView.swift */,
 				AA04LAS22E7A0001 /* LiveActivityStack.swift */,
@@ -1147,6 +1159,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6C4FABF3913243E3B9B72FAD /* CodexAvatarView.swift in Sources */,
+				3D5A7835217B477E9A6B86BC /* CodexActivityManager.swift in Sources */,
+				7E50CB481BE2473D94DB6677 /* CodexAvatarStyle.swift in Sources */,
+				C022B217ECA240DC89109C56 /* CodexActivityPhase.swift in Sources */,
 				115C12EC2ED3D003009754CA /* OpenNotchOSD.swift in Sources */,
 				14C08BB92C8DE4B1000F8AA0 /* BoringCalendar.swift in Sources */,
 				E2269C28E2B54A91B18A84BC /* HomeCalendarView.swift in Sources */,
