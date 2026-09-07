@@ -3,6 +3,8 @@ import Foundation
 enum CodexActivityPhase: String, Decodable {
     case offline, idle, active, waiting, error
 
+    var isInProgress: Bool { self == .active || self == .waiting }
+
     var statusText: String {
         switch self {
         case .offline: return "Codex is disconnected"

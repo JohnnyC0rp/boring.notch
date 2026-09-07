@@ -6,7 +6,7 @@ final class CodexActivityManager: ObservableObject {
     static let shared = CodexActivityManager()
 
     @Published private(set) var phase: CodexActivityPhase = .offline
-    var isActive: Bool { phase == .active }
+    var isActive: Bool { phase.isInProgress }
     var statusText: String { phase.statusText }
 
     private var monitoringTask: Task<Void, Never>?

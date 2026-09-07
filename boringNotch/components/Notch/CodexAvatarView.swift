@@ -62,6 +62,14 @@ private final class CodexAvatarNativeView: NSView {
                 ColorValueProvider(LottieColor(r: 1, g: 1, b: 1, a: 1)),
                 keypath: AnimationKeypath(keypath: "**.Color")
             )
+            thinking.setValueProvider(
+                FloatValueProvider(4.9234 * 1.5),
+                keypath: AnimationKeypath(keypath: "**.Blossom stroke.Stroke Width")
+            )
+            thinking.setValueProvider(
+                FloatValueProvider(5.742 * 1.5),
+                keypath: AnimationKeypath(keypath: "**.Stroke 1.Stroke Width")
+            )
         }
     }
 
@@ -178,7 +186,15 @@ private final class CodexAvatarNativeView: NSView {
             .replacingOccurrences(of: "fill=\"currentColor\"", with: "fill=\"#ffffff\"")
             .replacingOccurrences(of: "stroke=\"currentColor\"", with: "stroke=\"#ffffff\"")
             .replacingOccurrences(of: "opacity=\"0.3\"", with: "opacity=\"1\"")
-        return NSImage(data: Data(svg.utf8))
+            .replacingOccurrences(of: "stroke-width=\"4.9234\"", with: "stroke-width=\"7.3851\"")
+            .replacingOccurrences(of: "stroke-width=\"5.742\"", with: "stroke-width=\"8.613\"")
+            .replacingOccurrences(of: "stroke-width=\"24\"", with: "stroke-width=\"36\"")
+        let outlineWidth = name == "codex-home-icon" ? 20 : 10
+        let thickerSVG = svg.replacingOccurrences(
+            of: "fill=\"#ffffff\"",
+            with: "fill=\"#ffffff\" stroke=\"#ffffff\" stroke-width=\"\(outlineWidth)\" stroke-linejoin=\"round\""
+        )
+        return NSImage(data: Data(thickerSVG.utf8))
     }
 }
 

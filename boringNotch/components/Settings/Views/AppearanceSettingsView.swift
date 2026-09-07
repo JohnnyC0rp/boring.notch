@@ -86,7 +86,7 @@ struct Appearance: View {
                             .background(.black, in: RoundedRectangle(cornerRadius: 9))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(codexActivity.statusText).font(.caption)
-                            Text("Moves during Codex work. A still amber dot means input is needed.")
+                            Text("Moves during work and while waiting for input. Amber means attention is needed.")
                                 .font(.caption2).foregroundStyle(.secondary)
                         }
                         Spacer()

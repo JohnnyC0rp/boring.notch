@@ -18,6 +18,11 @@ enum CodexActivityPhaseTests {
         let data = Data("{\"service\":\"boringnotch-codex-activity\",\"version\":1,\"phase\":\"waiting\",\"updatedAt\":100,\"activeCount\":1}".utf8)
         let decoded = try JSONDecoder().decode(CodexActivitySnapshot.self, from: data)
         precondition(decoded.validatedPhase(at: now) == .waiting)
-        print("7 Codex activity phase checks passed")
+        precondition(CodexActivityPhase.active.isInProgress)
+        precondition(CodexActivityPhase.waiting.isInProgress)
+        precondition(!CodexActivityPhase.idle.isInProgress)
+        precondition(!CodexActivityPhase.offline.isInProgress)
+        precondition(!CodexActivityPhase.error.isInProgress)
+        print("12 Codex activity phase checks passed")
     }
 }

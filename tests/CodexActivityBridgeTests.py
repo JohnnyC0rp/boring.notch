@@ -38,11 +38,13 @@ class ProjectionTests(unittest.TestCase):
         self.state.consume(patch({"type": "idle"}), 102)
         self.assertEqual(self.state.summary(102)["phase"], "idle")
 
-    def test_waiting_does_not_animate(self):
+    def test_waiting_tasks_remain_in_active_count(self):
         self.state.consume(snapshot(flags=["waitingOnApproval"]), 100)
         self.assertEqual(self.state.summary(100)["phase"], "waiting")
+        self.assertEqual(self.state.summary(100)["activeCount"], 1)
         self.state.consume(snapshot(flags=["waitingOnUserInput"]), 101)
         self.assertEqual(self.state.summary(101)["phase"], "waiting")
+        self.assertEqual(self.state.summary(101)["activeCount"], 1)
 
     def test_working_task_takes_precedence_over_waiting_task(self):
         self.state.consume(snapshot(flags=["waitingOnApproval"]), 100)
