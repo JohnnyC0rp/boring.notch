@@ -6,8 +6,13 @@ final class CodexActivityManager: ObservableObject {
     static let shared = CodexActivityManager()
 
     @Published private(set) var phase: CodexActivityPhase = .offline
-    var isActive: Bool { phase.isInProgress }
-    var statusText: String { phase.statusText }
+    @Published private(set) var activeCount = 0
+    var isActive: Bool { phase.isInProgress && activeCount > 0 }
+    var level: CodexActivityLevel { CodexActivityLevel(activeCount: isActive ? activeCount : 0) }
+    var statusText: String {
+        guard isActive else { return phase.statusText }
+        return "\(phase.statusText) · \(activeCount) active \(activeCount == 1 ? "thread" : "threads")"
+    }
 
     private var monitoringTask: Task<Void, Never>?
     private let session: URLSession
@@ -38,6 +43,7 @@ final class CodexActivityManager: ObservableObject {
     func stopMonitoring() {
         monitoringTask?.cancel()
         monitoringTask = nil
+        activeCount = 0
         phase = .offline
     }
 
@@ -47,14 +53,18 @@ final class CodexActivityManager: ObservableObject {
             guard !Task.isCancelled else { return }
             guard let response = response as? HTTPURLResponse,
                   response.statusCode == 200, data.count <= 4096 else {
+                activeCount = 0
                 phase = .offline
                 return
             }
-            phase = try JSONDecoder().decode(CodexActivitySnapshot.self, from: data)
-                .validatedPhase(at: Date())
+            let snapshot = try JSONDecoder().decode(CodexActivitySnapshot.self, from: data)
+            let validatedPhase = snapshot.validatedPhase(at: Date())
+            activeCount = validatedPhase.isInProgress ? snapshot.activeCount : 0
+            phase = validatedPhase
         } catch {
             guard !Task.isCancelled else { return }
             // A disconnected bird stays still instead of pretending to be busy.
+            activeCount = 0
             phase = .offline
         }
     }
