@@ -207,6 +207,10 @@ struct ContentView: View {
                         }
                     }
                     .onChange(of: coordinator.currentView) { _, view in
+                        if view == .shelf, let window = NSApp.keyWindow as? BoringNotchSkyLightWindow {
+                            window.makeFirstResponder(nil)
+                            window.resignKey()
+                        }
                         if vm.notchState == .open {
                             withAnimation(.smooth(duration: 0.2)) {
                                 vm.notchSize = notchOpenSize(for: view)

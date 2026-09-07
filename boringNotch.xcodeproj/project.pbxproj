@@ -170,6 +170,8 @@
 		7552EFEE3B943C3EC7A0ED2C /* HomeCalendarScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DEEB37CADE498DB6314A92E /* HomeCalendarScrollView.swift */; };
 		45384509C8621D3524DE5C08 /* HomeCalendarTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3C0A9977E4559F095F702C /* HomeCalendarTimelineView.swift */; };
 		47C417F85EAB56A377E4FE2D /* CalendarTodayShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = 876949D0D0CCB6D086713835 /* CalendarTodayShortcut.swift */; };
+		33281A6BCCBE156593F1F105 /* CalendarDayScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C94A7569C4ABE5C6F3010734 /* CalendarDayScrollView.swift */; };
+		3989230BA0F3D86B3D4BDBBE /* CalendarDayStackGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5041F482D1CA4F900A6C3B82 /* CalendarDayStackGeometry.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -363,6 +365,8 @@
 		3DEEB37CADE498DB6314A92E /* HomeCalendarScrollView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarScrollView.swift; sourceTree = "<group>"; };
 		4B3C0A9977E4559F095F702C /* HomeCalendarTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarTimelineView.swift; sourceTree = "<group>"; };
 		876949D0D0CCB6D086713835 /* CalendarTodayShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTodayShortcut.swift; sourceTree = "<group>"; };
+		C94A7569C4ABE5C6F3010734 /* CalendarDayScrollView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDayScrollView.swift; sourceTree = "<group>"; };
+		5041F482D1CA4F900A6C3B82 /* CalendarDayStackGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDayStackGeometry.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -658,6 +662,8 @@
 				4B3C0A9977E4559F095F702C /* HomeCalendarTimelineView.swift */,
 				3DEEB37CADE498DB6314A92E /* HomeCalendarScrollView.swift */,
 				B700C017E0637B3F2E42CD21 /* HomeCalendarGeometry.swift */,
+				5041F482D1CA4F900A6C3B82 /* CalendarDayStackGeometry.swift */,
+				C94A7569C4ABE5C6F3010734 /* CalendarDayScrollView.swift */,
 				876949D0D0CCB6D086713835 /* CalendarTodayShortcut.swift */,
 				BC577231EE825A9835867BEF /* HomeCalendarView.swift */,
 				27B31AD0D6CBD446E7E65EC5 /* CalendarTimelineGeometry.swift */,
@@ -1035,6 +1041,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				095CE27E6B50D22BB6FEDC34 /* HomeCalendarGeometry.swift in Sources */,
+				3989230BA0F3D86B3D4BDBBE /* CalendarDayStackGeometry.swift in Sources */,
+				33281A6BCCBE156593F1F105 /* CalendarDayScrollView.swift in Sources */,
 				47C417F85EAB56A377E4FE2D /* CalendarTodayShortcut.swift in Sources */,
 				7552EFEE3B943C3EC7A0ED2C /* HomeCalendarScrollView.swift in Sources */,
 				45384509C8621D3524DE5C08 /* HomeCalendarTimelineView.swift in Sources */,
