@@ -26,7 +26,37 @@ struct CodexActivitySnapshot: Decodable {
     func validatedPhase(at now: Date) -> CodexActivityPhase {
         let age = now.timeIntervalSince1970 - updatedAt
         guard service == "boringnotch-codex-activity", version == 1,
-              age >= -2, age <= 8, activeCount >= 0 else { return .offline }
+              age >= -2, age <= 8, activeCount >= 0,
+              phase.isInProgress == (activeCount > 0) else { return .offline }
         return phase
+    }
+}
+
+/// Activity density selects an avatar without exposing task contents to the view.
+enum CodexActivityTier {
+    case smile, syncing, spin, iris
+}
+
+struct CodexActivityLevel: Equatable {
+    let activeCount: Int
+
+    init(activeCount: Int) {
+        self.activeCount = max(0, activeCount)
+    }
+
+    var tier: CodexActivityTier {
+        switch activeCount {
+        case 0: return .smile
+        case 1...2: return .syncing
+        case 3: return .spin
+        default: return .iris
+        }
+    }
+
+    var speedMultiplier: Double {
+        guard activeCount >= 4 else { return 1 }
+        let extra = Double(activeCount - 4)
+        // More work adds energy, but this iris never becomes a desk fan.
+        return 1.15 + 1.35 * extra / (extra + 6)
     }
 }
