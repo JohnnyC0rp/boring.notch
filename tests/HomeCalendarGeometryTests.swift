@@ -11,7 +11,10 @@ enum HomeCalendarGeometryTests {
         require(days[3].id == date("2026-09-07T00:00:00Z"), "The requested date must occupy the middle day")
         require(days.first!.id == date("2026-09-04T00:00:00Z") && days.last!.id == date("2026-09-10T00:00:00Z"),
                 "The window must extend three calendar days in each direction")
-        require(days.allSatisfy { $0.width == 24 * 72 }, "Ordinary days must use 72 points per elapsed hour")
+        require(days.allSatisfy { $0.width == 24 * 96 }, "Ordinary days must use 96 points per elapsed hour")
+        require(HomeCalendarGeometry.offset(of: center.addingTimeInterval(50 * 60), in: days)
+                - HomeCalendarGeometry.offset(of: center, in: days) == 80,
+                "A 50-minute class must receive 80 points for readable title wrapping")
         verifyContinuousMapping(days)
 
         let span = HomeCalendarGeometry.span(of: days)!
@@ -47,7 +50,7 @@ enum HomeCalendarGeometryTests {
         let firstOneThirty = date("2026-11-01T01:30:00-04:00")
         let secondOneThirty = date("2026-11-01T01:30:00-05:00")
         require(HomeCalendarGeometry.offset(of: secondOneThirty, in: autumn)
-                - HomeCalendarGeometry.offset(of: firstOneThirty, in: autumn) == 72,
+                - HomeCalendarGeometry.offset(of: firstOneThirty, in: autumn) == 96,
                 "Repeated local times must retain separate positions one elapsed hour apart")
 
         let lordHowe = calendar("Australia/Lord_Howe")
@@ -66,7 +69,7 @@ enum HomeCalendarGeometryTests {
     private static func verifyDayLength(_ value: String, hours: Double, calendar: Calendar) {
         let days = HomeCalendarGeometry.days(centeredOn: date(value), calendar: calendar)
         require(days[3].interval.duration == hours * 3600, "Calendar day must preserve its actual duration: \(value)")
-        require(days[3].width == hours * 72, "Day width must preserve fractional and shifted hours: \(value)")
+        require(days[3].width == hours * 96, "Day width must preserve fractional and shifted hours: \(value)")
         verifyContinuousMapping(days)
     }
 
