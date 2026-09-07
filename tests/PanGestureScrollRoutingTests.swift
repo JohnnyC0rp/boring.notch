@@ -1,0 +1,80 @@
+import AppKit
+import Defaults
+import SwiftUI
+
+extension Defaults.Keys {
+    static let normalizeGestureDirection = Key<Bool>("panRoutingTestNormalizeDirection", default: false)
+}
+
+private struct ScrollRoutingFixture: View {
+    private let days = HomeCalendarGeometry.days(centeredOn: Date())
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Color.gray.frame(width: 250, height: 130)
+            HomeCalendarScrollView(days: days, targetDate: Date(), resetID: 0, height: 100, onScroll: { _ in }) {
+                Color.blue.frame(width: days.reduce(0) { $0 + $1.width }, height: 100)
+            }
+            .frame(width: 315, height: 100)
+        }
+        .frame(width: 565, height: 130)
+        .panGesture(direction: .up) { _, _ in }
+        .panGesture(direction: .down) { _, _ in }
+        .panGesture(direction: .left) { _, _ in }
+        .panGesture(direction: .right) { _, _ in }
+    }
+}
+
+@main enum PanGestureScrollRoutingTests {
+    @MainActor static func descendants(_ view: NSView) -> [NSView] {
+        [view] + view.subviews.flatMap(descendants)
+    }
+
+    @MainActor static func main() {
+        _ = NSApplication.shared
+        NSApp.setActivationPolicy(.prohibited)
+        let window = NSWindow(contentRect: NSRect(x: -20000, y: -20000, width: 565, height: 130), styleMask: .borderless, backing: .buffered, defer: false)
+        let host = NSHostingView(rootView: ScrollRoutingFixture())
+        window.contentView = host
+        window.orderFrontRegardless()
+        defer { window.orderOut(nil) }
+        host.layoutSubtreeIfNeeded()
+        RunLoop.current.run(until: Date(timeIntervalSinceNow: 0.08))
+        host.layoutSubtreeIfNeeded()
+
+        let scrollView = descendants(host).compactMap { $0 as? HomeCalendarNativeScrollView }.first!
+        var checks = 0
+        func event(at point: NSPoint) -> NSEvent {
+            NSEvent.mouseEvent(with: .mouseMoved, location: point, modifierFlags: [], timestamp: 0,
+                               windowNumber: window.windowNumber, context: nil, eventNumber: 0,
+                               clickCount: 0, pressure: 0)!
+        }
+        // Exercise the actual nested SwiftUI hosting view, clip view, and native scroll view.
+        for x in [1.0, 100, 200, 314] {
+            for y in [1.0, 50, 99] {
+                let point = scrollView.convert(NSPoint(x: x, y: y), to: nil)
+                precondition(PanGestureScrollRouting.targetsScrollView(event(at: point)), "Calendar point must keep wheel ownership: \(x),\(y)")
+                checks += 1
+            }
+        }
+        for point in [NSPoint(x: 40, y: 60), NSPoint(x: 200, y: 60), NSPoint(x: 400, y: 125)] {
+            precondition(!PanGestureScrollRouting.targetsScrollView(event(at: point)), "Music/header must retain notch gestures")
+            checks += 1
+        }
+
+        scrollView.move(to: 1000)
+        let initial = scrollView.contentView.bounds.minX
+        for delta: Int32 in [-50, 50] {
+            let wheel = NSEvent(cgEvent: CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1,
+                                                wheel1: delta, wheel2: 0, wheel3: 0)!)!
+            let old = scrollView.contentView.bounds.minX
+            scrollView.scrollWheel(with: wheel)
+            let new = scrollView.contentView.bounds.minX
+            precondition(delta < 0 ? new > old : new < old, "Wheel must move in both directions")
+            checks += 1
+        }
+        precondition(abs(scrollView.contentView.bounds.minX - initial) < 0.01, "Opposite wheel deltas must return to the original time")
+        checks += 1
+        print("PASS \(checks) native calendar wheel-routing checks")
+    }
+}
