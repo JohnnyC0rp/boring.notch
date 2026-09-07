@@ -3,6 +3,7 @@ import Foundation
 /// A rolling window with one elapsed-time scale and each day's unused nights removed.
 enum HomeCalendarGeometry {
     static let pointsPerHour = 96.0
+    static let daySpacing = 18.0
 
     struct Day: Identifiable, Equatable {
         let interval: DateInterval
@@ -32,13 +33,18 @@ enum HomeCalendarGeometry {
         return DateInterval(start: first.interval.start, end: last.interval.end)
     }
 
+    static func width(of days: [Day]) -> Double {
+        days.reduce(0) { $0 + $1.width } + Double(max(0, days.count - 1)) * daySpacing
+    }
+
     static func offset(of date: Date, in days: [Day]) -> Double {
         var offset = 0.0
-        for day in days {
+        for (index, day) in days.enumerated() {
             if date < day.interval.end {
                 return offset + CalendarTimelineGeometry.position(of: date, in: day.visibleInterval, pointsPerHour: pointsPerHour)
             }
             offset += day.width
+            if index < days.count - 1 { offset += daySpacing }
         }
         return offset
     }
@@ -50,8 +56,17 @@ enum HomeCalendarGeometry {
                 return day.visibleInterval.start.addingTimeInterval(min(remaining / pointsPerHour * 3600, day.visibleInterval.duration))
             }
             remaining -= day.width
+            // A gap announces the next day; it never invents minutes between them.
+            if remaining < daySpacing { return days[index + 1].visibleInterval.start }
+            remaining -= daySpacing
         }
         return nil
+    }
+
+    /// Preserve the exact pixel anchor when a rolling window changes, including inside a gap.
+    static func rebasedOffset(_ value: Double, from oldDays: [Day], to newDays: [Day]) -> Double {
+        guard let date = date(at: value, in: oldDays) else { return 0 }
+        return offset(of: date, in: newDays) + value - offset(of: date, in: oldDays)
     }
 
     /// Reset the whole viewport inside its requested day, even before 07:00 or after 19:00.

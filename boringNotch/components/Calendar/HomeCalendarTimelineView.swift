@@ -54,7 +54,7 @@ struct HomeCalendarTimelineView: View {
                     TimelineView(.periodic(from: .now, by: 30)) { context in
                         HomeCalendarScrollView(days: days, targetDay: displayedDate, targetDate: targetDate, resetID: resetID,
                                                height: 100, onScroll: didScroll) {
-                            HStack(spacing: 0) {
+                            HStack(spacing: HomeCalendarGeometry.daySpacing) {
                                 ForEach(days) { day in
                                     HomeCalendarDayLane(day: day, events: timedEvents(on: day.interval), now: context.date) {
                                         selectedEvent = $0
@@ -296,7 +296,7 @@ private struct HomeCalendarDayLane: View {
                 }
                 Text(day.interval.start.formatted(.dateTime.weekday(.abbreviated).day()).uppercased())
                     .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(.red)
+                    .foregroundStyle(.red.opacity(0.75))
                     .padding(.horizontal, 4)
                     .background(.black)
                     .offset(x: 39)
@@ -312,9 +312,9 @@ private struct HomeCalendarDayLane: View {
         }
         .frame(width: day.width, height: 100)
         .overlay(alignment: .topLeading) {
-            DayBoundaryBrackets().stroke(.red, style: StrokeStyle(lineWidth: 2, lineCap: .square))
-                .frame(width: 14, height: 78)
-                .offset(x: -7, y: 1)
+            DayBoundaryBrackets().stroke(.red.opacity(0.65), style: StrokeStyle(lineWidth: 1.25, lineCap: .round, lineJoin: .round))
+                .frame(width: day.width - 2, height: 76)
+                .offset(x: 1, y: 2)
                 .allowsHitTesting(false)
                 .accessibilityLabel("Start of \(day.interval.start.formatted(date: .complete, time: .omitted))")
         }
@@ -397,10 +397,13 @@ private struct HomeCalendarDayLane: View {
 private struct DayBoundaryBrackets: Shape {
     func path(in rect: CGRect) -> Path {
         var path = Path()
-        path.move(to: CGPoint(x: 0, y: 0))
-        path.addLines([CGPoint(x: 5, y: 0), CGPoint(x: 5, y: rect.maxY), CGPoint(x: 0, y: rect.maxY)])
-        path.move(to: CGPoint(x: rect.maxX, y: 0))
-        path.addLines([CGPoint(x: 9, y: 0), CGPoint(x: 9, y: rect.maxY), CGPoint(x: rect.maxX, y: rect.maxY)])
+        for x in [rect.minX, rect.maxX] {
+            let inward = x == rect.minX ? 6.0 : -6.0
+            path.move(to: CGPoint(x: x + inward, y: rect.minY))
+            path.addLines([CGPoint(x: x, y: rect.minY), CGPoint(x: x, y: rect.minY + 8)])
+            path.move(to: CGPoint(x: x + inward, y: rect.maxY))
+            path.addLines([CGPoint(x: x, y: rect.maxY), CGPoint(x: x, y: rect.maxY - 8)])
+        }
         return path
     }
 }

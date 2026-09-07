@@ -30,19 +30,18 @@ struct HomeCalendarScrollView<Content: View>: NSViewRepresentable {
 
     func updateNSView(_ scrollView: HomeCalendarNativeScrollView, context: Context) {
         let coordinator = context.coordinator
-        let previousDate = HomeCalendarGeometry.date(at: scrollView.contentView.bounds.minX, in: coordinator.days)
+        let rebasedOffset = HomeCalendarGeometry.rebasedOffset(scrollView.contentView.bounds.minX, from: coordinator.days, to: days)
         let changedLayout = coordinator.days != days
         let shouldReset = coordinator.resetID != resetID
         coordinator.days = days
         coordinator.resetID = resetID
-        let width = days.reduce(0) { $0 + $1.width }
+        let width = HomeCalendarGeometry.width(of: days)
         coordinator.hosting?.rootView = content()
         coordinator.hosting?.frame = NSRect(x: 0, y: 0, width: width, height: height)
         if shouldReset {
             scrollView.position(on: targetDay, near: targetDate, in: days)
         } else if changedLayout {
-            let date = previousDate ?? targetDate
-            scrollView.move(to: HomeCalendarGeometry.offset(of: date, in: days))
+            scrollView.move(to: rebasedOffset)
         }
         scrollView.didScroll = { [weak scrollView, weak coordinator] in
             guard let scrollView, let coordinator else { return }

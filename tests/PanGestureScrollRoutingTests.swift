@@ -13,7 +13,7 @@ private struct ScrollRoutingFixture: View {
         HStack(spacing: 0) {
             Color.gray.frame(width: 250, height: 130)
             HomeCalendarScrollView(days: days, targetDay: Date(), targetDate: Date(), resetID: 0, height: 100, onScroll: { _ in }) {
-                Color.blue.frame(width: days.reduce(0) { $0 + $1.width }, height: 100)
+                Color.blue.frame(width: HomeCalendarGeometry.width(of: days), height: 100)
             }
             .frame(width: 315, height: 100)
         }
@@ -96,7 +96,7 @@ private struct ScrollRoutingFixture: View {
 
         let initialScroll = HomeCalendarNativeScrollView(frame: .zero)
         initialScroll.borderType = .noBorder
-        initialScroll.documentView = NSView(frame: NSRect(x: 0, y: 0, width: days.reduce(0) { $0 + $1.width }, height: 100))
+        initialScroll.documentView = NSView(frame: NSRect(x: 0, y: 0, width: HomeCalendarGeometry.width(of: days), height: 100))
         initialScroll.position(on: today, near: late, in: days)
         initialScroll.frame = NSRect(x: 0, y: 0, width: 315, height: 100)
         initialScroll.needsLayout = true
