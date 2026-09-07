@@ -378,7 +378,7 @@ private struct HomeCalendarDayLane: View {
                         VStack(alignment: .leading, spacing: tall ? 4 : 2) {
                             Text(event.title)
                                 .font(.system(size: 11, weight: .medium))
-                                .lineLimit(tall ? 2 : 1)
+                                .lineLimit(tall ? 3 : 1)
                                 .truncationMode(.tail)
                             if laneHeight > 30, let location = event.location, !location.isEmpty {
                                 Text(location.replacingOccurrences(of: "\n", with: ", "))
