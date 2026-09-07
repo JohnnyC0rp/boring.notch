@@ -178,7 +178,7 @@ class DesktopServerDiscovery:
 class ThreadDiscovery:
     """Discover new and resumed tasks without repeatedly traversing the archive.
 
-    Call candidates() at the usual three-second discovery cadence. Cached file
+    Call candidates() at the bridge's discovery cadence. Cached file
     paths are stat'ed every call, including old rollouts. Directory watches are
     registered before enumeration; incomplete watches fall back to a full scan
     at that same cadence. A periodic scan reconciles quiet notification state.
