@@ -204,7 +204,9 @@ class DesktopObserver:
                 if state and state["status"]["type"] == "active":
                     if now - max(last_sent, state["seen"]) >= 30:
                         self.follow(thread_id, now)
-                elif now - last_sent >= 8:
+                # Verified idle tasks stay attached: a new turn need not write
+                # its rollout before its active status arrives on this stream.
+                elif state is None and now - last_sent >= 8:
                     self.unfollow(thread_id)
                     self.next_probe[thread_id] = now + 30
                 continue
@@ -268,14 +270,6 @@ class DesktopObserver:
                 retry = self.projection.consume(message, now)
             if retry:
                 self.follow(retry, now)
-            params = message.get("params")
-            thread_id = params.get("conversationId") if isinstance(params, dict) else None
-            with self.lock:
-                state = self.projection.threads.get(thread_id)
-                inactive = state is not None and state["status"]["type"] != "active"
-            if (inactive and message.get("method") == "thread-stream-state-changed"
-                    and params.get("hostId") == "local" and state["seen"] == now):
-                self.unfollow(thread_id)
 
     def reset(self):
         if self.sock:
