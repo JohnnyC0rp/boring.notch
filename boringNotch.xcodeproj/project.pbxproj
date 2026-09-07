@@ -158,6 +158,17 @@
 		B1FEB4992C7686630066EBBC /* PanGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1FEB4982C7686630066EBBC /* PanGesture.swift */; };
 		F1F2A0A100000000000000F1 /* AudioCaptureManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1F2A0A200000000000000F2 /* AudioCaptureManager.swift */; };
 		F38DE6482D8243E7008B5C6D /* BatteryActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */; };
+		C9EC281652B7E79A9AFB6176 /* CalendarMonthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 440BC3D71197DB9CA002E4F4 /* CalendarMonthView.swift */; };
+		1B3103D1316F7337B164E20E /* CalendarMonthGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = C52E76BE1EE13ABFAD2E7FBA /* CalendarMonthGeometry.swift */; };
+		2C67DE37934DD611B26C22CF /* CalendarTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12951C760CF622F7D22599A1 /* CalendarTimelineView.swift */; };
+		05E0FE8BB621D54586193D06 /* CalendarTimelineGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27B31AD0D6CBD446E7E65EC5 /* CalendarTimelineGeometry.swift */; };
+		7E8F2E08A70E45DB414082BF /* ClipboardHistoryItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF5964ACD15CAA748B436785 /* ClipboardHistoryItem.swift */; };
+		661E393E179FB4E62CEB5A9C /* ClipboardHistoryManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3DACC5BAC3EB2C515097EC /* ClipboardHistoryManager.swift */; };
+		76CFAEC83E8EDA3DB5C9031E /* ClipboardHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06501035487CC2F9C7E085B1 /* ClipboardHistoryView.swift */; };
+		BBD38F73AAE5D329C7CA1861 /* HomeCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC577231EE825A9835867BEF /* HomeCalendarView.swift */; };
+		095CE27E6B50D22BB6FEDC34 /* HomeCalendarGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B700C017E0637B3F2E42CD21 /* HomeCalendarGeometry.swift */; };
+		7552EFEE3B943C3EC7A0ED2C /* HomeCalendarScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DEEB37CADE498DB6314A92E /* HomeCalendarScrollView.swift */; };
+		45384509C8621D3524DE5C08 /* HomeCalendarTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3C0A9977E4559F095F702C /* HomeCalendarTimelineView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -339,6 +350,17 @@
 		B1FEB4982C7686630066EBBC /* PanGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PanGesture.swift; sourceTree = "<group>"; };
 		F1F2A0A200000000000000F2 /* AudioCaptureManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioCaptureManager.swift; sourceTree = "<group>"; };
 		F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatteryActivityManager.swift; sourceTree = "<group>"; };
+		440BC3D71197DB9CA002E4F4 /* CalendarMonthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMonthView.swift; sourceTree = "<group>"; };
+		C52E76BE1EE13ABFAD2E7FBA /* CalendarMonthGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMonthGeometry.swift; sourceTree = "<group>"; };
+		12951C760CF622F7D22599A1 /* CalendarTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTimelineView.swift; sourceTree = "<group>"; };
+		27B31AD0D6CBD446E7E65EC5 /* CalendarTimelineGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTimelineGeometry.swift; sourceTree = "<group>"; };
+		FF5964ACD15CAA748B436785 /* ClipboardHistoryItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardHistoryItem.swift; sourceTree = "<group>"; };
+		4B3DACC5BAC3EB2C515097EC /* ClipboardHistoryManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardHistoryManager.swift; sourceTree = "<group>"; };
+		06501035487CC2F9C7E085B1 /* ClipboardHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardHistoryView.swift; sourceTree = "<group>"; };
+		BC577231EE825A9835867BEF /* HomeCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarView.swift; sourceTree = "<group>"; };
+		B700C017E0637B3F2E42CD21 /* HomeCalendarGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarGeometry.swift; sourceTree = "<group>"; };
+		3DEEB37CADE498DB6314A92E /* HomeCalendarScrollView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarScrollView.swift; sourceTree = "<group>"; };
+		4B3C0A9977E4559F095F702C /* HomeCalendarTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarTimelineView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -585,6 +607,7 @@
 		1471639B2C5D362F0068B555 /* components */ = {
 			isa = PBXGroup;
 			children = (
+				6C0D14653036A3DF09200ED2 /* Clipboard */,
 				11985BDF2F37A3C800F81585 /* OSD */,
 				B141C23B2CA5F50900AC8CC8 /* Onboarding */,
 				14C08BB72C8DE49E000F8AA0 /* Calendar */,
@@ -606,6 +629,7 @@
 		147163B52C5D804B0068B555 /* managers */ = {
 			isa = PBXGroup;
 			children = (
+				4B3DACC5BAC3EB2C515097EC /* ClipboardHistoryManager.swift */,
 				11DB26652EDD0BE1001EA0CF /* LyricsService.swift */,
 				11D58EA12E760AE100FA8377 /* ImageService.swift */,
 				F38DE6472D8243E2008B5C6D /* BatteryActivityManager.swift */,
@@ -629,6 +653,14 @@
 		14C08BB72C8DE49E000F8AA0 /* Calendar */ = {
 			isa = PBXGroup;
 			children = (
+				4B3C0A9977E4559F095F702C /* HomeCalendarTimelineView.swift */,
+				3DEEB37CADE498DB6314A92E /* HomeCalendarScrollView.swift */,
+				B700C017E0637B3F2E42CD21 /* HomeCalendarGeometry.swift */,
+				BC577231EE825A9835867BEF /* HomeCalendarView.swift */,
+				27B31AD0D6CBD446E7E65EC5 /* CalendarTimelineGeometry.swift */,
+				12951C760CF622F7D22599A1 /* CalendarTimelineView.swift */,
+				C52E76BE1EE13ABFAD2E7FBA /* CalendarMonthGeometry.swift */,
+				440BC3D71197DB9CA002E4F4 /* CalendarMonthView.swift */,
 				14C08BB82C8DE4B1000F8AA0 /* BoringCalendar.swift */,
 			);
 			path = Calendar;
@@ -722,6 +754,7 @@
 		14D570C72C5F38760011E668 /* models */ = {
 			isa = PBXGroup;
 			children = (
+				FF5964ACD15CAA748B436785 /* ClipboardHistoryItem.swift */,
 				11F748812ECB07A400F841DB /* MusicControlButton.swift */,
 				118D1FD02E98FF5F00A2FF63 /* SharingStateManager.swift */,
 				1163988E2DF5CC870052E6AF /* CalendarModel.swift */,
@@ -840,6 +873,14 @@
 				B186543B2C6F49AE000B926A /* ShortcutConstants.swift */,
 			);
 			path = Shortcuts;
+			sourceTree = "<group>";
+		};
+		6C0D14653036A3DF09200ED2 /* Clipboard */ = {
+			isa = PBXGroup;
+			children = (
+				06501035487CC2F9C7E085B1 /* ClipboardHistoryView.swift */,
+			);
+			path = Clipboard;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -990,6 +1031,17 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				095CE27E6B50D22BB6FEDC34 /* HomeCalendarGeometry.swift in Sources */,
+				7552EFEE3B943C3EC7A0ED2C /* HomeCalendarScrollView.swift in Sources */,
+				45384509C8621D3524DE5C08 /* HomeCalendarTimelineView.swift in Sources */,
+				BBD38F73AAE5D329C7CA1861 /* HomeCalendarView.swift in Sources */,
+				76CFAEC83E8EDA3DB5C9031E /* ClipboardHistoryView.swift in Sources */,
+				661E393E179FB4E62CEB5A9C /* ClipboardHistoryManager.swift in Sources */,
+				7E8F2E08A70E45DB414082BF /* ClipboardHistoryItem.swift in Sources */,
+				05E0FE8BB621D54586193D06 /* CalendarTimelineGeometry.swift in Sources */,
+				2C67DE37934DD611B26C22CF /* CalendarTimelineView.swift in Sources */,
+				1B3103D1316F7337B164E20E /* CalendarMonthGeometry.swift in Sources */,
+				C9EC281652B7E79A9AFB6176 /* CalendarMonthView.swift in Sources */,
 				115C12EC2ED3D003009754CA /* OpenNotchOSD.swift in Sources */,
 				14C08BB92C8DE4B1000F8AA0 /* BoringCalendar.swift in Sources */,
 				5955950D2E900ED800C66711 /* ApplicationRelauncher.swift in Sources */,

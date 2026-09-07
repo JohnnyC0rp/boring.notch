@@ -15,13 +15,12 @@ struct CalendarSettings: View {
     @Default(.hideCompletedReminders) var hideCompletedReminders
     @Default(.hideAllDayEvents) var hideAllDayEvents
     @Default(.autoScrollToNextEvent) var autoScrollToNextEvent
-    @Default(.calendarWeekView) var calendarWeekView
     @Default(.weekStartDay) var weekStartDay
 
     var body: some View {
         Form {
             Defaults.Toggle(key: .showCalendar) {
-                Text("Show calendar")
+                Text("Show calendar beside the music player")
             }
             Defaults.Toggle(key: .hideCompletedReminders) {
                 Text("Hide completed reminders")
@@ -30,19 +29,11 @@ struct CalendarSettings: View {
                 Text("Hide all-day events")
             }
             Defaults.Toggle(key: .autoScrollToNextEvent) {
-                Text("Auto-scroll to next event")
+                Text("Automatically position the timeline")
             }
-            Defaults.Toggle(key: .showFullEventTitles) {
-                Text("Always show full event titles")
-            }
-            Defaults.Toggle(key: .calendarWeekView) {
-                Text("Weekly view")
-            }
-            if calendarWeekView {
-                Picker("Week starts on", selection: $weekStartDay) {
-                    ForEach(WeekStartDay.allCases) { day in
-                        Text(day.localizedString).tag(day)
-                    }
+            Picker("Week starts on", selection: $weekStartDay) {
+                ForEach(WeekStartDay.allCases) { day in
+                    Text(day.localizedString).tag(day)
                 }
             }
             Section(header: Text("Calendars")) {
@@ -76,7 +67,6 @@ struct CalendarSettings: View {
                                 Text(calendar.title)
                             }
                             .accentColor(lighterColor(from: calendar.color))
-                            .disabled(!showCalendar)
                         }
                     }
                 }
@@ -112,7 +102,6 @@ struct CalendarSettings: View {
                                 Text(calendar.title)
                             }
                             .accentColor(lighterColor(from: calendar.color))
-                            .disabled(!showCalendar)
                         }
                     }
                 }

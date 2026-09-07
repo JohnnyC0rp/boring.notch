@@ -147,7 +147,7 @@ struct ContentView: View {
                     .opacity((isNotchHeightZero && vm.notchState == .closed) ? 0.01 : 1)
                 
                 mainLayout
-                    .frame(height: vm.notchState == .open ? vm.notchSize.height : nil)
+                    .frame(height: vm.notchState == .open ? vm.notchSize.height : nil, alignment: .top)
                     .conditionalModifier(true) { view in
                         return view
                             .animation(vm.notchState == .open ? StandardAnimations.open : StandardAnimations.close, value: vm.notchState)
@@ -199,6 +199,13 @@ struct ContentView: View {
                         if newState == .closed && isHovering {
                             withAnimation {
                                 isHovering = false
+                            }
+                        }
+                    }
+                    .onChange(of: coordinator.currentView) { _, view in
+                        if vm.notchState == .open {
+                            withAnimation(.smooth(duration: 0.2)) {
+                                vm.notchSize = notchOpenSize(for: view)
                             }
                         }
                     }
@@ -403,6 +410,12 @@ struct ContentView: View {
                         )
                     case .shelf:
                         ShelfView()
+                    case .calendar:
+                        CalendarTimelineView()
+                            .onHover { vm.isHoveringCalendar = $0 }
+                            .onDisappear { vm.isHoveringCalendar = false }
+                    case .clipboard:
+                        ClipboardHistoryView()
                     }
                 }
                 .transition(
@@ -639,7 +652,8 @@ struct ContentView: View {
     }
 
     private func handleUpGesture(translation: CGFloat, phase: NSEvent.Phase) {
-        guard vm.notchState == .open && !vm.isHoveringCalendar else { return }
+        guard vm.notchState == .open && !vm.isHoveringCalendar,
+              coordinator.currentView != .calendar && coordinator.currentView != .clipboard else { return }
 
         withAnimation(animationSpring) {
             gestureProgress = (translation / Defaults[.gestureSensitivity]) * -20
