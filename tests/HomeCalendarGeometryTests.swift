@@ -18,7 +18,7 @@ enum HomeCalendarGeometryTests {
         verifyContinuousMapping(days)
 
         let span = HomeCalendarGeometry.span(of: days)!
-        let width = days.reduce(0) { $0 + $1.width }
+        let width = HomeCalendarGeometry.width(of: days)
         require(HomeCalendarGeometry.offset(of: span.start.addingTimeInterval(-1), in: days) == 0,
                 "Dates before the window must clamp to its start")
         require(HomeCalendarGeometry.offset(of: span.end.addingTimeInterval(1), in: days) == width,
@@ -66,7 +66,8 @@ enum HomeCalendarGeometryTests {
             }
         }
         verifyCroppedHours(calendar: utc)
-        print("Home calendar geometry: all checks passed (cropped 07–19 window, early/late/overnight events, reset bounds, DST, inverse mapping, 2,400 scrolling steps).")
+        verifyDayGaps(calendar: utc)
+        print("Home calendar geometry: all checks passed (cropped 07–19 window, day gaps, early/late/overnight events, reset bounds, DST, inverse mapping, 2,400 scrolling steps).")
     }
 
     private static func verifyDayLength(_ value: String, hours: Double, calendar: Calendar) {
@@ -79,7 +80,7 @@ enum HomeCalendarGeometryTests {
     private static func verifyContinuousMapping(_ days: [HomeCalendarGeometry.Day]) {
         var x = 0.0
         for (index, day) in days.enumerated() {
-            require(HomeCalendarGeometry.offset(of: day.id, in: days) == x, "Day boundaries must have no artificial pixel gaps")
+            require(HomeCalendarGeometry.offset(of: day.id, in: days) == x, "Day boundaries must include only the explicit visual gaps")
             if index > 0 {
                 require(days[index - 1].interval.end == day.interval.start, "Calendar days must form a contiguous interval")
             }
@@ -91,9 +92,10 @@ enum HomeCalendarGeometryTests {
                         "Elapsed date-to-offset mapping must round-trip within one microsecond")
             }
             x += day.width
+            if index < days.count - 1 { x += HomeCalendarGeometry.daySpacing }
         }
         require(HomeCalendarGeometry.offset(of: days.last!.interval.end, in: days) == x,
-                "The continuous span must equal the sum of actual day widths")
+                "The document width must equal day widths plus one gap between adjacent days")
     }
 
     private static func verifyRepeatedRecentering(from start: Date, direction: Double, calendar: Calendar) {
@@ -105,8 +107,9 @@ enum HomeCalendarGeometryTests {
             let previous = visibleDate
             let offset = HomeCalendarGeometry.offset(of: visibleDate, in: days) + direction * 6 * 96
             visibleDate = HomeCalendarGeometry.date(at: offset, in: days)!
-            require(abs(HomeCalendarGeometry.offset(of: visibleDate, in: days) - offset) < 0.000001,
-                    "Repeated scrolling must not become stuck at a finite window boundary")
+            let mappedOffset = HomeCalendarGeometry.offset(of: visibleDate, in: days)
+            require(mappedOffset - offset >= -0.000001 && mappedOffset - offset <= HomeCalendarGeometry.daySpacing,
+                    "Scroll mapping may skip only the visual gap, never a rendered time or the window boundary")
             require(visibleDate.timeIntervalSince(previous) * direction > 0,
                     "Scrolling must advance through cropped nights in the requested direction")
             if HomeCalendarGeometry.needsRecentering(visibleDate: visibleDate, in: days, calendar: calendar) {
@@ -140,7 +143,7 @@ enum HomeCalendarGeometryTests {
         verifyContinuousMapping(ranged)
         let seam = HomeCalendarGeometry.offset(of: ranged[3].visibleInterval.end, in: ranged)
         require(HomeCalendarGeometry.date(at: seam, in: ranged) == ranged[4].visibleInterval.start,
-                "Adjacent visible days join directly without hidden-night pixels")
+                "The visual gap points to the next visible day without adding hidden-night time")
         require(HomeCalendarGeometry.date(at: HomeCalendarGeometry.offset(of: today, in: ranged), in: ranged) == today,
                 "Changing loaded ranges preserves a visible time when rebasing offsets")
         let ignored = HomeCalendarGeometry.days(centeredOn: today, events: [
@@ -167,6 +170,42 @@ enum HomeCalendarGeometryTests {
         }
         require(HomeCalendarGeometry.viewportOffset(near: today, on: today, viewportWidth: 2000, in: empty) == leading,
                 "An oversized viewport anchors at the requested day's start")
+    }
+
+    private static func verifyDayGaps(calendar: Calendar) {
+        let today = date("2026-09-07T12:00:00Z")
+        let days = HomeCalendarGeometry.days(centeredOn: today, calendar: calendar)
+        require(HomeCalendarGeometry.width(of: []) == 0, "An empty strip has no gap")
+        require(HomeCalendarGeometry.width(of: [days[3]]) == days[3].width, "A single day has no trailing gap")
+        require(HomeCalendarGeometry.width(of: days) == days.reduce(0) { $0 + $1.width } + 6 * HomeCalendarGeometry.daySpacing,
+                "Seven days have exactly six visual gaps")
+        let shifted = HomeCalendarGeometry.days(centeredOn: today.addingTimeInterval(86400), calendar: calendar)
+        for index in 1..<5 {
+            let preceding = days[index]
+            let following = days[index + 1]
+            let gapStart = HomeCalendarGeometry.offset(of: preceding.id, in: days) + preceding.width
+            let nextStart = HomeCalendarGeometry.offset(of: following.id, in: days)
+            require(nextStart - gapStart == HomeCalendarGeometry.daySpacing,
+                    "Adjacent day ranges must be separated by exactly18 points")
+            for fraction in [0.0, 0.25, 0.5, 0.999999] {
+                let offset = gapStart + HomeCalendarGeometry.daySpacing * fraction
+                require(HomeCalendarGeometry.date(at: offset, in: days) == following.visibleInterval.start,
+                        "Every pixel in a gap consistently announces the next visible day")
+                let rebased = HomeCalendarGeometry.rebasedOffset(offset, from: days, to: shifted)
+                let newNextStart = HomeCalendarGeometry.offset(of: following.id, in: shifted)
+                require(abs((nextStart - offset) - (newNextStart - rebased)) < 0.000001,
+                        "Recentering preserves the exact leading pixel even when it falls inside a gap")
+                let restored = HomeCalendarGeometry.rebasedOffset(rebased, from: shifted, to: days)
+                require(abs(restored - offset) < 0.000001, "Gap anchors rebase reversibly in either scroll direction")
+            }
+            require(HomeCalendarGeometry.date(at: nextStart, in: days) == following.visibleInterval.start,
+                    "The first pixel after the gap is exactly the next displayed start time")
+            let beforeGap = HomeCalendarGeometry.date(at: gapStart - 0.01, in: days)!
+            require(beforeGap < preceding.visibleInterval.end && beforeGap > preceding.visibleInterval.end.addingTimeInterval(-1),
+                    "The final rendered instant remains on the preceding day")
+            let lateReset = HomeCalendarGeometry.viewportOffset(near: preceding.interval.end, on: preceding.id, viewportWidth: 315, in: days)
+            require(lateReset + 315 == gapStart, "A late Today viewport ends before the visual gap")
+        }
     }
 
     private static func calendar(_ zone: String) -> Calendar {
