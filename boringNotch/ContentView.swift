@@ -330,13 +330,6 @@ struct ContentView: View {
                             XPCHelperClient.shared.notchClosed()
                         }
                     }
-                    .onChange(of: coordinator.currentView) { _, view in
-                        guard vm.notchState == .open, !Defaults[.compactMode],
-                              notificationManager.activeNotification == nil else { return }
-                        withAnimation(.smooth(duration: 0.2)) {
-                            vm.notchSize = notchOpenSize(for: view)
-                        }
-                    }
                     .onDisappear {
                         // Balance the refcount: torn down while open (screen
                         // lock, display-set change, window teardown) means the
