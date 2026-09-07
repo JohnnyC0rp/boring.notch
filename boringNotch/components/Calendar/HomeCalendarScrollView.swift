@@ -4,6 +4,7 @@ import SwiftUI
 /// Native wheel routing and viewport preservation for the continuous Home timeline.
 struct HomeCalendarScrollView<Content: View>: NSViewRepresentable {
     let days: [HomeCalendarGeometry.Day]
+    let targetDay: Date
     let targetDate: Date
     let resetID: Int
     let height: CGFloat
@@ -30,15 +31,17 @@ struct HomeCalendarScrollView<Content: View>: NSViewRepresentable {
     func updateNSView(_ scrollView: HomeCalendarNativeScrollView, context: Context) {
         let coordinator = context.coordinator
         let previousDate = HomeCalendarGeometry.date(at: scrollView.contentView.bounds.minX, in: coordinator.days)
-        let changedWindow = coordinator.days.first?.id != days.first?.id
+        let changedLayout = coordinator.days != days
         let shouldReset = coordinator.resetID != resetID
         coordinator.days = days
         coordinator.resetID = resetID
         let width = days.reduce(0) { $0 + $1.width }
         coordinator.hosting?.rootView = content()
         coordinator.hosting?.frame = NSRect(x: 0, y: 0, width: width, height: height)
-        if changedWindow || shouldReset {
-            let date = shouldReset ? targetDate : (previousDate ?? targetDate)
+        if shouldReset {
+            scrollView.position(on: targetDay, near: targetDate, in: days)
+        } else if changedLayout {
+            let date = previousDate ?? targetDate
             scrollView.move(to: HomeCalendarGeometry.offset(of: date, in: days))
         }
         scrollView.didScroll = { [weak scrollView, weak coordinator] in
@@ -65,8 +68,28 @@ struct HomeCalendarScrollView<Content: View>: NSViewRepresentable {
 
 final class HomeCalendarNativeScrollView: NSScrollView {
     var didScroll: (() -> Void)?
+    private var pendingPosition: (day: Date, date: Date, days: [HomeCalendarGeometry.Day])?
+
+    override func layout() {
+        super.layout()
+        applyPendingPosition()
+    }
+
+    func position(on day: Date, near date: Date, in days: [HomeCalendarGeometry.Day]) {
+        pendingPosition = (day, date, days)
+        needsLayout = true
+        applyPendingPosition()
+    }
+
+    private func applyPendingPosition() {
+        guard let request = pendingPosition, contentView.bounds.width > 0 else { return }
+        pendingPosition = nil
+        move(to: HomeCalendarGeometry.viewportOffset(near: request.date, on: request.day,
+                                                    viewportWidth: contentView.bounds.width, in: request.days))
+    }
 
     override func scrollWheel(with event: NSEvent) {
+        pendingPosition = nil
         // One lane, one direction: a mouse wheel should not need a Shift-key secret handshake.
         let delta = abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY)
             ? event.scrollingDeltaX : event.scrollingDeltaY
