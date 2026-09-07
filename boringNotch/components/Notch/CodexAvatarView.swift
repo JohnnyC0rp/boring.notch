@@ -95,10 +95,7 @@ private final class CodexAvatarNativeView: NSView {
         if self.style != style {
             stopAnimating()
             self.style = style
-            colorfulArtwork.isHidden = style != .iris
-            let name = style == .iris ? "codex-iris-resting"
-                : style == .codex ? "codex-thinking-static" : "codex-home-icon"
-            artwork.image = Self.whiteVector(named: name)
+            artwork.image = Self.whiteVector(named: "codex-home-icon")
             colorfulArtwork.image = Self.resource("codex-iris-dark", extension: "png").flatMap(NSImage.init(contentsOf:))
         }
         requestedActive = isActive
@@ -109,14 +106,10 @@ private final class CodexAvatarNativeView: NSView {
     private func reconcileAnimation() {
         let active = requestedActive && window != nil
         let shouldAnimate = active && !reduceMotion
-        thinking.isHidden = style != .codex || !shouldAnimate
-        artwork.isHidden = style == .codex && shouldAnimate
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        thinking.alphaValue = active ? 0.9 : 0.5
-        artwork.alphaValue = style == .iris ? (active ? 0 : 0.45) : (active ? 1 : 0.65)
-        colorfulArtwork.alphaValue = active ? 1 : 0
-        CATransaction.commit()
+        // Activity changes motion, never the artwork or its brightness.
+        thinking.isHidden = style != .codex
+        artwork.isHidden = style != .codexSpin
+        colorfulArtwork.isHidden = style != .iris
         guard shouldAnimate != spinning else { return }
         stopAnimating()
         guard shouldAnimate else { return }
