@@ -7,12 +7,10 @@ only an aggregate phase, count and freshness timestamp. Conversation snapshots
 are discarded immediately after extracting runtime status; no text is logged.
 """
 
-import datetime
 import http.server
 import json
 import os
 from pathlib import Path
-import re
 import select
 import socket
 import stat
@@ -22,19 +20,22 @@ import threading
 import time
 import uuid
 
+from codex_activity_json import ActivityJSONReader
+from codex_activity_discovery import DesktopServerDiscovery, ThreadDiscovery, THREAD_ID
+
 
 PORT = 48731
 CODEX_STATE_ROOT = Path.home() / ".codex"
 SOCKET_PATH = CODEX_STATE_ROOT / "ipc" / "ipc.sock"
 STREAM_VERSION = 11
 MAX_FRAME_BYTES = 256 * 1024 * 1024
-THREAD_ID = re.compile(r"([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\.jsonl$")
 STATUS_TYPES = {"active", "idle", "notLoaded", "systemError"}
 WAIT_FLAGS = {"waitingOnApproval", "waitingOnUserInput"}
 
 
 def clean_status(value):
-    if not isinstance(value, dict) or value.get("type") not in STATUS_TYPES:
+    if (not isinstance(value, dict) or not isinstance(value.get("type"), str)
+            or value["type"] not in STATUS_TYPES):
         return None
     status_type = value["type"]
     flags = value.get("activeFlags", [])
@@ -59,7 +60,9 @@ class ActivityProjection:
         if message.get("type") != "broadcast":
             return None
         method = message.get("method")
-        params = message.get("params", {})
+        params = message.get("params")
+        if not isinstance(params, dict):
+            return None
         if method == "client-status-changed" and params.get("status") == "disconnected":
             owner = params.get("clientId")
             self.threads = {key: state for key, state in self.threads.items()
@@ -76,14 +79,18 @@ class ActivityProjection:
         if message.get("version") != STREAM_VERSION:
             self.threads.pop(thread_id, None)
             return None
-        change = params.get("change", {})
+        change = params.get("change")
+        if not isinstance(change, dict):
+            self.threads.pop(thread_id, None)
+            return None
         owner = message.get("sourceClientId")
         revision = change.get("revision")
         if not isinstance(revision, int) or not isinstance(owner, str):
             self.threads.pop(thread_id, None)
             return None
         if change.get("type") == "snapshot":
-            status = clean_status(change.get("conversationState", {}).get("threadRuntimeStatus"))
+            state = change.get("conversationState")
+            status = clean_status(state.get("threadRuntimeStatus")) if isinstance(state, dict) else None
             if status is None:
                 self.threads.pop(thread_id, None)
             else:
@@ -97,7 +104,14 @@ class ActivityProjection:
             self.threads.pop(thread_id, None)
             return thread_id
         status = dict(current["status"])
-        for patch in change.get("patches", []):
+        patches = change.get("patches")
+        if not isinstance(patches, list):
+            self.threads.pop(thread_id, None)
+            return thread_id
+        for patch in patches:
+            if not isinstance(patch, dict):
+                self.threads.pop(thread_id, None)
+                return thread_id
             path = patch.get("path", [])
             if not isinstance(path, list) or not path or path[0] != "threadRuntimeStatus":
                 continue
@@ -116,7 +130,8 @@ class ActivityProjection:
         return None
 
     def summary(self, now):
-        fresh = [state["status"] for state in self.threads.values() if now - state["seen"] <= 45]
+        fresh = [state["status"] for state in self.threads.values()
+                 if state["status"]["type"] != "active" or now - state["seen"] <= 45]
         active = [state for state in fresh if state["type"] == "active"]
         working = [state for state in active if not state["activeFlags"]]
         if not self.connected or (self.threads and not fresh) or not self.threads:
@@ -133,39 +148,6 @@ class ActivityProjection:
                 "phase": phase, "activeCount": len(active), "updatedAt": now}
 
 
-def desktop_server_identity():
-    """Only the server parented by Desktop qualifies; unrelated CLI servers do not."""
-    result = subprocess.run(["/bin/ps", "-axo", "pid=,ppid=,lstart=,comm="],
-                            capture_output=True, text=True, check=True,
-                            env={**os.environ, "LC_ALL": "C"}, timeout=3)
-    processes = {}
-    for line in result.stdout.splitlines():
-        fields = line.strip().split(None, 7)
-        if len(fields) == 8:
-            processes[int(fields[0])] = (int(fields[1]), " ".join(fields[2:7]), fields[7])
-    for pid, (parent, started, command) in processes.items():
-        parent_command = processes.get(parent, (None, None, ""))[2]
-        if command.endswith(".app/Contents/Resources/codex") and parent_command.endswith(".app/Contents/MacOS/ChatGPT"):
-            timestamp = datetime.datetime.strptime(started, "%a %b %d %H:%M:%S %Y").timestamp()
-            return pid, timestamp
-    return None
-
-
-def discover_threads(started_at):
-    """Read directory entries and mtimes, never transcript contents."""
-    result = {}
-    for path in (CODEX_STATE_ROOT / "sessions").rglob("rollout-*.jsonl"):
-        match = THREAD_ID.search(path.name)
-        if match:
-            try:
-                modified = path.stat().st_mtime
-                if modified >= started_at:
-                    result[match.group(1)] = modified
-            except OSError:
-                pass
-    return result
-
-
 class DesktopObserver:
     def __init__(self):
         self.projection = ActivityProjection()
@@ -173,8 +155,12 @@ class DesktopObserver:
         self.last_poll = 0
         self.sock = None
         self.client_id = None
-        self.pending = bytearray()
         self.subscribed = {}
+        self.probed_versions = {}
+        self.next_probe = {}
+        self.candidates = {}
+        self.server_discovery = DesktopServerDiscovery()
+        self.thread_discovery = ThreadDiscovery(CODEX_STATE_ROOT / "sessions")
 
     def snapshot(self):
         with self.lock:
@@ -189,10 +175,46 @@ class DesktopObserver:
         self.sock.sendall(struct.pack("<I", len(data)) + data)
 
     def follow(self, thread_id, now):
+        with self.lock:
+            previous = self.projection.threads.get(thread_id)
+            if previous is not None and previous["status"]["type"] != "active":
+                self.projection.threads.pop(thread_id)
         self.send({"type": "broadcast", "sourceClientId": self.client_id,
                    "method": "thread-stream-following-changed", "version": 1,
                    "params": {"hostId": "local", "conversationId": thread_id, "following": True}})
         self.subscribed[thread_id] = now
+
+    def unfollow(self, thread_id):
+        if thread_id in self.subscribed:
+            self.send({"type": "broadcast", "sourceClientId": self.client_id,
+                       "method": "thread-stream-following-changed", "version": 1,
+                       "params": {"hostId": "local", "conversationId": thread_id, "following": False}})
+            self.subscribed.pop(thread_id, None)
+
+    def refresh_subscriptions(self, candidates, now):
+        self.candidates = candidates
+        with self.lock:
+            states = {key: dict(state) for key, state in self.projection.threads.items()}
+        known = candidates.keys() | self.subscribed.keys() | self.next_probe.keys()
+        for thread_id in sorted(known, key=lambda key: candidates.get(key, 0), reverse=True):
+            modified = candidates.get(thread_id)
+            state = states.get(thread_id)
+            last_sent = self.subscribed.get(thread_id)
+            if last_sent is not None:
+                if state and state["status"]["type"] == "active":
+                    if now - max(last_sent, state["seen"]) >= 30:
+                        self.follow(thread_id, now)
+                elif now - last_sent >= 8:
+                    self.unfollow(thread_id)
+                    self.next_probe[thread_id] = now + 30
+                continue
+            changed = self.probed_versions.get(thread_id) != modified
+            retry_unknown = state is None and now >= self.next_probe.get(thread_id, 0)
+            if changed or retry_unknown:
+                # Keep the fingerprint that triggered this probe; a racing write
+                # must still be noticed after its snapshot arrives.
+                self.probed_versions[thread_id] = modified
+                self.follow(thread_id, now)
 
     def connect(self):
         entry = SOCKET_PATH.lstat()
@@ -208,45 +230,62 @@ class DesktopObserver:
     def receive(self, now):
         if not select.select([self.sock], [], [], 0.2)[0]:
             return
-        chunk = self.sock.recv(65536)
-        if not chunk:
-            raise EOFError()
-        self.pending.extend(chunk)
-        while len(self.pending) >= 4:
-            size = struct.unpack_from("<I", self.pending)[0]
-            if size == 0 or size > MAX_FRAME_BYTES:
-                raise ValueError("Invalid IPC frame length")
-            if len(self.pending) < 4 + size:
-                return
-            message = json.loads(self.pending[4:4 + size])
-            del self.pending[:4 + size]
-            if message.get("type") == "response" and message.get("method") == "initialize":
-                self.client_id = message.get("result", {}).get("clientId")
-                with self.lock:
-                    self.projection.connected = bool(self.client_id)
-            elif message.get("type") == "client-discovery-request":
-                self.send({"type": "client-discovery-response", "requestId": message["requestId"],
-                           "response": {"canHandle": False}})
-            else:
-                if message.get("method") == "ipc-connection-reset":
-                    raise ConnectionResetError()
-                if message.get("method") == "client-status-changed":
-                    # New owners must get a fresh subscription after a window reconnects.
-                    self.subscribed.clear()
-                with self.lock:
-                    retry = self.projection.consume(message, now)
-                if retry:
-                    self.follow(retry, now)
-            # The full frame ends its life here. Only runtime status survives.
-            del message
+        header = bytearray()
+        while len(header) < 4:
+            chunk = self.sock.recv(4 - len(header))
+            if not chunk:
+                raise EOFError()
+            header.extend(chunk)
+        size = struct.unpack("<I", header)[0]
+        if size == 0 or size > MAX_FRAME_BYTES:
+            raise ValueError("Invalid IPC frame length")
+        message = ActivityJSONReader(self.sock.recv, size).decode()
+        if message.get("type") == "response" and message.get("method") == "initialize":
+            result = message.get("result")
+            self.client_id = result.get("clientId") if isinstance(result, dict) else None
+            with self.lock:
+                self.projection.connected = isinstance(self.client_id, str) and bool(self.client_id)
+        elif message.get("type") == "client-discovery-request":
+            self.send({"type": "client-discovery-response", "requestId": message.get("requestId"),
+                       "response": {"canHandle": False}})
+        else:
+            if message.get("method") == "ipc-connection-reset":
+                raise ConnectionResetError()
+            if message.get("method") == "client-status-changed":
+                # New owners must get a fresh subscription after a window reconnects.
+                self.subscribed.clear()
+                self.probed_versions.clear()
+                self.next_probe.clear()
+            if message.get("method") == "thread-stream-following-status-requested":
+                params = message.get("params")
+                if (isinstance(params, dict) and params.get("hostId") == "local"
+                        and isinstance(params.get("conversationId"), str)
+                        and params["conversationId"] not in self.subscribed):
+                    thread_id = params["conversationId"]
+                    self.probed_versions[thread_id] = self.candidates.get(thread_id)
+                    self.follow(thread_id, now)
+            with self.lock:
+                retry = self.projection.consume(message, now)
+            if retry:
+                self.follow(retry, now)
+            params = message.get("params")
+            thread_id = params.get("conversationId") if isinstance(params, dict) else None
+            with self.lock:
+                state = self.projection.threads.get(thread_id)
+                inactive = state is not None and state["status"]["type"] != "active"
+            if (inactive and message.get("method") == "thread-stream-state-changed"
+                    and params.get("hostId") == "local" and state["seen"] == now):
+                self.unfollow(thread_id)
 
     def reset(self):
         if self.sock:
             self.sock.close()
         self.sock = None
         self.client_id = None
-        self.pending.clear()
         self.subscribed.clear()
+        self.probed_versions.clear()
+        self.next_probe.clear()
+        self.candidates.clear()
         with self.lock:
             self.projection.disconnect()
 
@@ -260,12 +299,13 @@ class DesktopObserver:
             try:
                 now = time.time()
                 if now - checked_at >= 2:
-                    current = desktop_server_identity()
+                    current = self.server_discovery.identity()
                     checked_at = now
                     if current != identity:
                         self.reset()
                         identity = current
                         discovered_at = 0
+                        self.thread_discovery.close()
                 with self.lock:
                     self.last_poll = now
                 if identity is None:
@@ -280,18 +320,12 @@ class DesktopObserver:
                     print(f"Codex activity: {display_status[0]}, active tasks: {display_status[1]}", flush=True)
                     last_status = display_status
                 last_error = None
-                if self.client_id and now - discovered_at >= 3:
+                if self.client_id and now - discovered_at >= 2:
                     discovered_at = now
-                    candidates = discover_threads(identity[1])
-                    with self.lock:
-                        states = {key: state["seen"] for key, state in self.projection.threads.items()}
-                    for thread_id in candidates:
-                        last_sent = self.subscribed.get(thread_id, 0)
-                        last_seen = states.get(thread_id, 0)
-                        if not last_sent or now - max(last_sent, last_seen) >= 30:
-                            self.follow(thread_id, now)
+                    self.refresh_subscriptions(self.thread_discovery.candidates(identity[1]), now)
             except (OSError, ValueError, EOFError, subprocess.SubprocessError) as error:
                 self.reset()
+                self.server_discovery.invalidate()
                 error_type = type(error).__name__
                 if error_type != last_error:
                     print(f"Codex activity source disconnected ({error_type}); retrying", flush=True)
@@ -326,6 +360,8 @@ def main():
         server.serve_forever()
     finally:
         observer.reset()
+        observer.server_discovery.close()
+        observer.thread_discovery.close()
         server.server_close()
 
 

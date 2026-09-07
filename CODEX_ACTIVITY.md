@@ -48,11 +48,32 @@ rm "$HOME/Library/LaunchAgents/theboringteam.boringnotch.codex-activity-login.pl
 
 ## Data flow and compatibility
 
-The bridge uses Codex Desktop's private local IPC protocol, not a supported public API. It identifies the app-server process owned by Desktop and discovers candidate task IDs from local session filenames and modification times. It does not open session transcript files. Incoming IPC snapshots are decoded in memory; only runtime status, revision, owner and freshness metadata are retained. Prompts, titles, responses and tool output are discarded and never logged or returned through HTTP.
+The bridge uses Codex Desktop's private local IPC protocol, not a supported public API. It identifies the app-server process owned by Desktop and discovers candidate task IDs from local session filenames and modification times. It does not open session transcript files. Incoming IPC frames are validated and projected in bounded chunks; only runtime status, revision, owner and freshness metadata are retained. Prompts, titles, responses and tool output are discarded and never logged or returned through HTTP.
 
 `http://127.0.0.1:48731/activity` exposes only the service name, schema version, aggregate phase, active task count and a timestamp. The endpoint binds to loopback, rejects browser-origin requests and accepts only the expected Host header. The native client does not follow redirects. No credentials are required or stored.
 
 Stream version 11 snapshots and revision-checked patches are supported. The bridge requests fresh snapshots after gaps or owner changes, refreshes quiet subscriptions, and clears activity when Desktop exits or the IPC connection fails. Unknown protocol versions and expired observations remain still. Future Desktop protocol changes may require a bridge update. Standalone CLI sessions and remote hosts are outside this integration's scope.
+
+## Resource use
+
+The frame reader consumes at most 64 KiB per socket read and validates UTF-8 and JSON as it advances. Complete ignored values within a chunk can be decoded temporarily by CPython's C decoder and then discarded. Larger strings and containers are consumed incrementally. Limits on retained scalar lengths, paths and arrays bound the activity projection. The 64 KiB input limit is not a limit on total process memory: Python and temporary decoded objects also consume memory. Desktop still sends full conversation snapshots through this private protocol, so chunked parsing does not eliminate their transmission or serialization cost.
+
+The bridge caches the verified Desktop/server process identity and session file paths. A two-second maintenance cycle checks process lifecycle notifications and cached file modification times, including files in older session directories. On macOS, directory notifications trigger structural rescans; a periodic reconciliation also refreshes the cache. When notification coverage is unavailable, discovery falls back to polling. Session file contents are never read.
+
+Active tasks, including tasks waiting for input or approval, remain subscribed. Quiet active subscriptions request a fresh snapshot after 30 seconds, and active observations expire after 45 seconds without confirmation. An authoritative idle, error or not-loaded state releases its subscription and retains only the last known inactive metadata. File changes, owner announcements and reconnects trigger new probes. An unanswered probe releases its subscription after eight seconds and retries after a 30-second backoff, so unknown tasks do not remain permanent followers. Releasing inactive subscriptions also allows Desktop's normal history cleanup to run.
+
+The native app continues to request the aggregate endpoint once per second. Discovery intervals are scheduling cadences, not an end-to-end latency guarantee: rollout writes, IPC delivery and task duration can affect when a resumed task is observed.
+
+Representative synthetic measurements compare the previous full-frame decoder with the bounded reader. Each case used an identical generated fixture, a fresh Python 3.14.4 worker, warm file reads and one measured run; imports and fixture generation were excluded.
+
+| Synthetic frame | CPU seconds: full frame → bounded reader | Peak RSS MiB: full frame → bounded reader |
+| --- | ---: | ---: |
+| 32 MiB, one large ignored string | 0.034 → 0.116 | 123.92 → 27.50 |
+| 32 MiB, many small turn objects | 0.091 → 0.221 | 217.84 → 27.59 |
+| 128 MiB, one large ignored string | 0.143 → 0.464 | 411.98 → 27.61 |
+| 128 MiB, many small turn objects | 0.361 → 0.888 | 796.80 → 27.62 |
+
+All cases produced the same activity projection. These runs show the memory/CPU tradeoff of parsing alone; they exclude the process-discovery cache and subscription changes. They are not universal memory ceilings or live-service speedup estimates.
 
 ## Artwork provenance
 
@@ -66,4 +87,4 @@ All original glyphs retain full opacity across state and speed changes. Reduce M
 ./script/check-codex-activity.sh
 ```
 
-The checks use synthetic IPC messages and task IDs, validate phase/freshness handling and published counts, exercise tier boundaries and rotation continuity, typecheck the native client, and render counts 0, 1, 2, 3, 4, 8 and a large count offscreen alongside resting, rotated and Reduce Motion states. They neither connect to Codex nor start the bridge. The app uses the standard `boringNotch` Xcode scheme.
+The checks use synthetic IPC messages and task IDs, validate phase/freshness handling and published counts, exercise chunk boundaries and malformed frames, cover discovery and subscription lifecycles, exercise tier boundaries and rotation continuity, typecheck the native client, and render counts 0, 1, 2, 3, 4, 8 and a large count offscreen alongside resting, rotated and Reduce Motion states. They neither connect to Codex nor start the bridge. The app uses the standard `boringNotch` Xcode scheme.
