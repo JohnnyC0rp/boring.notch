@@ -72,6 +72,7 @@ struct HomeCalendarTimelineView: View {
         }
         .foregroundStyle(.white)
         .frame(height: 130, alignment: .top)
+        .calendarTodayShortcut { jump(to: Date(), showCurrentTime: true) }
         .task(id: requestID) { await reload() }
         .onChange(of: manager.selectedCalendarIDs) { _, _ in reloadID += 1 }
         .onChange(of: coordinator.calendarDate) { _, date in
@@ -116,6 +117,7 @@ struct HomeCalendarTimelineView: View {
             }
             dayArrow("chevron.left", offset: -1)
             Button("Today") { jump(to: Date(), showCurrentTime: true) }
+                .help("Today (T)")
                 .font(.system(size: 9, weight: .medium))
                 .padding(.horizontal, 6)
                 .padding(.vertical, 3)
@@ -243,28 +245,6 @@ private struct HomeCalendarDayLane: View {
         let isToday = now >= day.interval.start && now < day.interval.end
         VStack(spacing: 4) {
             ZStack(alignment: .topLeading) {
-                ForEach(CalendarTimelineGeometry.hourTicks(in: day.interval).dropLast(), id: \.self) { tick in
-                    Text(tickLabel(tick))
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.4))
-                        .offset(x: position(tick) + 4)
-                }
-                Text(day.interval.start.formatted(.dateTime.weekday(.abbreviated).day()).uppercased())
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(.red)
-                    .padding(.horizontal, 4)
-                    .background(.black)
-                    .offset(x: 7)
-                if isToday {
-                    Text(now.formatted(.dateTime.hour().minute()))
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .padding(.horizontal, 4)
-                        .background(.red, in: Capsule())
-                        .offset(x: max(0, progress - 18))
-                }
-            }
-            .frame(width: day.width, height: 16, alignment: .topLeading)
-            ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 5).fill(.white.opacity(0.035))
                 Rectangle().fill(.white.opacity(0.025)).frame(width: progress)
                 ForEach(CalendarTimelineGeometry.hourTicks(in: day.interval).dropLast(), id: \.self) { tick in
@@ -301,12 +281,34 @@ private struct HomeCalendarDayLane: View {
                 }
             }
             .frame(width: day.width, height: 80, alignment: .topLeading)
+            ZStack(alignment: .topLeading) {
+                ForEach(CalendarTimelineGeometry.hourTicks(in: day.interval).dropLast(), id: \.self) { tick in
+                    Text(tickLabel(tick))
+                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .offset(x: position(tick) + 4)
+                }
+                Text(day.interval.start.formatted(.dateTime.weekday(.abbreviated).day()).uppercased())
+                    .font(.system(size: 8, weight: .bold))
+                    .foregroundStyle(.red)
+                    .padding(.horizontal, 4)
+                    .background(.black)
+                    .offset(x: 7)
+                if isToday {
+                    Text(now.formatted(.dateTime.hour().minute()))
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .padding(.horizontal, 4)
+                        .background(.red, in: Capsule())
+                        .offset(x: max(0, progress - 18))
+                }
+            }
+            .frame(width: day.width, height: 16, alignment: .topLeading)
         }
         .frame(width: day.width, height: 100)
-        .overlay(alignment: .bottomLeading) {
+        .overlay(alignment: .topLeading) {
             DayBoundaryBrackets().stroke(.red, style: StrokeStyle(lineWidth: 2, lineCap: .square))
                 .frame(width: 14, height: 78)
-                .offset(x: -7)
+                .offset(x: -7, y: 1)
                 .allowsHitTesting(false)
                 .accessibilityLabel("Start of \(day.interval.start.formatted(date: .complete, time: .omitted))")
         }

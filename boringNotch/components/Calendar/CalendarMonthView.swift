@@ -8,8 +8,15 @@ struct CalendarMonthView: View {
     @ObservedObject private var coordinator = BoringViewCoordinator.shared
     @Default(.weekStartDay) private var weekStartDay
     @State private var displayedMonth = Date()
-    private let daySize: CGFloat = 16
-    private let columnSpacing: CGFloat = 10
+    private let columnSpacing: CGFloat = 9
+
+    private var cells: [Date?] {
+        let cells = CalendarMonthGeometry.cells(containing: displayedMonth, calendar: calendar)
+        let rows = ((cells.lastIndex { $0 != nil } ?? 0) / 7) + 1
+        return Array(cells.prefix(rows * 7))
+    }
+
+    private var daySize: CGFloat { min(19, 96 / CGFloat(cells.count / 7)) }
 
     private var calendar: Calendar {
         var calendar = Calendar.current
@@ -19,19 +26,19 @@ struct CalendarMonthView: View {
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
-            VStack(spacing: 3) {
+            VStack(spacing: 2) {
                 header(today: context.date)
                 HStack(spacing: columnSpacing) {
                     ForEach(0..<7, id: \.self) { index in
                         let weekday = (calendar.firstWeekday - 1 + index) % 7
                         Text(calendar.veryShortStandaloneWeekdaySymbols[weekday])
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.gray)
-                            .frame(width: daySize, height: 9)
+                            .frame(width: daySize, height: 11)
                     }
                 }
                 LazyVGrid(columns: Array(repeating: GridItem(.fixed(daySize), spacing: columnSpacing), count: 7), spacing: 0) {
-                    ForEach(Array(CalendarMonthGeometry.cells(containing: displayedMonth, calendar: calendar).enumerated()), id: \.offset) { _, date in
+                    ForEach(Array(cells.enumerated()), id: \.offset) { _, date in
                         if let date {
                             dayButton(date, today: context.date)
                         } else {
@@ -42,7 +49,8 @@ struct CalendarMonthView: View {
                 }
             }
             .frame(width: 7 * daySize + 6 * columnSpacing, height: 130, alignment: .top)
-            .frame(maxWidth: .infinity, alignment: .trailing)
+            .frame(maxWidth: .infinity, alignment: .center)
+            .calendarTodayShortcut { showToday() }
             .onChange(of: calendar.startOfDay(for: context.date)) { oldDay, newDay in
                 if calendar.isDate(displayedMonth, equalTo: oldDay, toGranularity: .month) {
                     displayedMonth = newDay
@@ -62,9 +70,9 @@ struct CalendarMonthView: View {
                 .foregroundStyle(.gray)
             Spacer(minLength: 0)
             if !calendar.isDate(displayedMonth, equalTo: today, toGranularity: .month) {
-                Button("Today") { displayedMonth = today }
+                Button("Today", action: showToday)
                     .font(.system(size: 9, weight: .medium))
-                    .help("Return to the current month")
+                    .help("Today (T)")
             }
             monthArrow("chevron.left", offset: -1)
             monthArrow("chevron.right", offset: 1)
@@ -79,6 +87,12 @@ struct CalendarMonthView: View {
             }
         }
         .frame(height: 19)
+    }
+
+    private func showToday() {
+        let today = Date()
+        displayedMonth = today
+        coordinator.calendarDate = today
     }
 
     private func monthArrow(_ symbol: String, offset: Int) -> some View {
@@ -106,7 +120,7 @@ struct CalendarMonthView: View {
             }
         } label: {
             Text("\(calendar.component(.day, from: date))")
-                .font(.system(size: 10, weight: isToday ? .bold : .medium, design: .rounded))
+                .font(.system(size: daySize > 16 ? 11 : 10, weight: isToday ? .bold : .medium, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(isToday ? .white : calendar.isDateInWeekend(date) ? Color.gray : Color.white.opacity(0.86))
                 .frame(width: daySize, height: daySize)
