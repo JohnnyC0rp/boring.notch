@@ -11,13 +11,16 @@ enum CalendarDayStackGeometryTests {
         require(days[3].id == date("2026-09-07T00:00:00Z"), "The requested day must occupy the middle row")
         require(days.first!.id == date("2026-09-04T00:00:00Z") && days.last!.id == date("2026-09-10T00:00:00Z"),
                 "The window must extend three calendar days in each direction")
-        require(CalendarDayStackGeometry.rowHeight == 94 && CalendarDayStackGeometry.rowSpacing == 8
-                && CalendarDayStackGeometry.rowStride == 102 && CalendarDayStackGeometry.pointsPerHour == 96,
+        require(CalendarDayStackGeometry.rowHeight == 94 && CalendarDayStackGeometry.rowSpacing == 12
+                && CalendarDayStackGeometry.rowStride == 106 && CalendarDayStackGeometry.pointsPerHour == 96,
                 "The day stack must use the intended fixed row and horizontal hour dimensions")
         verifyWindow(days)
 
         let documentHeight = CalendarDayStackGeometry.documentHeight(for: days)
-        require(documentHeight == 706, "Seven rows must have only six intervening gaps")
+        require(documentHeight == 730, "Seven rows must have only six intervening gaps")
+        let twoRowHeight = CalendarDayStackGeometry.documentHeight(for: Array(days.prefix(2)))
+        require(twoRowHeight == 200 && twoRowHeight <= 202,
+                "Two complete day rows and their gap must fit inside the 202-point viewport")
         require(CalendarDayStackGeometry.position(at: -10, in: days) == .init(day: days[0].id, intraDayOffset: 0),
                 "Negative positions must clamp to the first row")
         require(CalendarDayStackGeometry.position(at: documentHeight + 10, in: days)
@@ -77,7 +80,7 @@ enum CalendarDayStackGeometryTests {
             require(CalendarDayStackGeometry.offset(of: .init(day: day.id, intraDayOffset: 0), in: days) == rowStart,
                     "DST must never change vertical day-row spacing")
             var fractions = [0.0, 0.123456789, 17.625, 93.999999, 94.0]
-            if index < days.count - 1 { fractions.append(contentsOf: [97.125, 101.999999]) }
+            if index < days.count - 1 { fractions.append(contentsOf: [97.125, 104, 105.999]) }
             for fraction in fractions {
                 let y = rowStart + fraction
                 let position = CalendarDayStackGeometry.position(at: y, in: days)!
@@ -87,7 +90,7 @@ enum CalendarDayStackGeometryTests {
                         "Pixel positions must round-trip within one billionth of a point")
             }
         }
-        require(CalendarDayStackGeometry.documentHeight(for: days) == 706,
+        require(CalendarDayStackGeometry.documentHeight(for: days) == 730,
                 "DST and fractional-hour transitions must not change the document height")
     }
 
