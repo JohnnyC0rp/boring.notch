@@ -150,6 +150,19 @@ struct CalendarTimelineView: View {
         }
         .padding(.top, 2)
         .frame(width: 47, height: CalendarDayStackGeometry.rowHeight, alignment: .topLeading)
+        .overlay(alignment: .trailing) {
+            Path { path in
+                path.move(to: CGPoint(x: 0, y: 0))
+                path.addLine(to: CGPoint(x: 6, y: 0))
+                path.addLine(to: CGPoint(x: 6, y: 8))
+                path.move(to: CGPoint(x: 6, y: 82))
+                path.addLine(to: CGPoint(x: 6, y: 90))
+                path.addLine(to: CGPoint(x: 0, y: 90))
+            }
+            .stroke(.red.opacity(0.5), style: StrokeStyle(lineWidth: 1.25, lineCap: .round, lineJoin: .round))
+            .frame(width: 7, height: 90).padding(.trailing, 1)
+            .allowsHitTesting(false).accessibilityHidden(true)
+        }
     }
 
     private var visibleRanges: [DateInterval] {

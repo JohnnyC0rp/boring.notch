@@ -3,7 +3,7 @@ import Foundation
 /// Days keep a fixed row height while their horizontal timeline preserves elapsed time.
 enum CalendarDayStackGeometry {
     static let rowHeight = 94.0
-    static let rowSpacing = 8.0
+    static let rowSpacing = 12.0
     static let rowStride = rowHeight + rowSpacing
     static let pointsPerHour = 96.0
 
