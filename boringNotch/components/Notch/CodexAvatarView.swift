@@ -7,6 +7,35 @@
 
 import SwiftUI
 
+/// Presentation uses plain values so task observation remains with the containing view.
+struct CodexStatusAvatarView: View {
+    let style: CodexAvatarStyle
+    let isActive: Bool
+    let speedMultiplier: Double
+    let phase: CodexActivityPhase
+    let statusText: String
+
+    var body: some View {
+        Group {
+            if style == .smile {
+                AnimatedFace(height: 24, width: 30)
+            } else {
+                CodexAvatarView(style: style, isActive: isActive, speedMultiplier: speedMultiplier)
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if phase == .waiting || phase == .error {
+                Circle().fill(phase == .waiting ? Color.orange : .red)
+                    .frame(width: 5, height: 5)
+                    .overlay(Circle().stroke(.black, lineWidth: 1))
+            }
+        }
+        .help(statusText)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(statusText)
+    }
+}
+
 /// Original geometric artwork. No OpenAI logo paths, images or animation assets are used.
 struct CodexAvatarView: View {
     let style: CodexAvatarStyle

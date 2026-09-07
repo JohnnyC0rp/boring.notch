@@ -1023,24 +1023,9 @@ extension ContentView {
     }
 
     private var codexAvatar: some View {
-        Group {
-            if effectiveCodexAvatarStyle == .smile {
-                AnimatedFace(height: 24, width: 30)
-            } else {
-                CodexAvatarView(style: effectiveCodexAvatarStyle, isActive: codexActivityEnabled && codexActivity.isActive,
-                                speedMultiplier: codexActivityEnabled ? codexActivity.level.speedMultiplier : 1)
-            }
-        }
-            .overlay(alignment: .bottomTrailing) {
-                if codexActivity.phase == .waiting || codexActivity.phase == .error {
-                    Circle().fill(codexActivity.phase == .waiting ? Color.orange : .red)
-                        .frame(width: 5, height: 5)
-                        .overlay(Circle().stroke(.black, lineWidth: 1))
-                }
-            }
-            .help(codexActivity.statusText)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel(codexActivity.statusText)
+        CodexStatusAvatarView(style: effectiveCodexAvatarStyle, isActive: codexActivityEnabled && codexActivity.isActive,
+                              speedMultiplier: codexActivityEnabled ? codexActivity.level.speedMultiplier : 1,
+                              phase: codexActivity.phase, statusText: codexActivity.statusText)
     }
 }
 
