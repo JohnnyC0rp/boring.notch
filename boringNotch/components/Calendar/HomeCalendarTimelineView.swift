@@ -9,6 +9,9 @@ import Defaults
 import EventKit
 import SwiftUI
 
+private let homeCalendarTimeCapsuleWidth = 72.0
+private let homeCalendarHourLabelWidth = 42.0
+
 /// A continuous strip of time beside the player, with a bounded rolling data window.
 @MainActor
 struct HomeCalendarTimelineView: View {
@@ -80,7 +83,7 @@ struct HomeCalendarTimelineView: View {
                             .overlay(alignment: .topLeading) {
                                 if let position = HomeCalendarGeometry.gapOffset(of: context.date, in: days) {
                                     HomeCalendarGapTimeMarker(now: context.date, highlighted: highlightNow)
-                                        .offset(x: position - 30)
+                                        .offset(x: position - homeCalendarTimeCapsuleWidth / 2)
                                 }
                             }
                         }
@@ -330,10 +333,10 @@ private struct HomeCalendarDayLane: View {
             ZStack(alignment: .topLeading) {
                 ForEach(CalendarTimelineGeometry.hourTicks(in: day.visibleInterval), id: \.self) { tick in
                     Text(tickLabel(tick))
-                        .font(.system(size: 9, weight: .medium, design: .monospaced))
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.4))
-                        .opacity(isTickUnderGapMarker(tick) ? 0 : 1)
-                        .offset(x: min(position(tick) + 4, day.width - 34))
+                        .opacity(isTickUnderTimeMarker(tick) ? 0 : 1)
+                        .offset(x: min(position(tick) + 4, day.width - homeCalendarHourLabelWidth))
                 }
                 Text(day.interval.start.formatted(.dateTime.weekday(.abbreviated).day()).uppercased())
                     .font(.system(size: 8, weight: .bold))
@@ -343,11 +346,12 @@ private struct HomeCalendarDayLane: View {
                     .offset(x: 39)
                 if isToday {
                     Text(now.formatted(.dateTime.hour().minute()))
-                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
                         .padding(.horizontal, 4)
                         .background(.red, in: Capsule())
                         .overlay { Capsule().stroke(.white.opacity(highlightNow ? 0.9 : 0), lineWidth: 1) }
-                        .offset(x: min(max(0, progress - 18), day.width - 52))
+                        .frame(width: homeCalendarTimeCapsuleWidth)
+                        .offset(x: min(max(0, progress - homeCalendarTimeCapsuleWidth / 2), day.width - homeCalendarTimeCapsuleWidth))
                 }
             }
             .frame(width: day.width, height: 16, alignment: .topLeading)
@@ -371,15 +375,17 @@ private struct HomeCalendarDayLane: View {
                 HStack(spacing: 4) {
                     RoundedRectangle(cornerRadius: 1).fill(color).frame(width: 2)
                     if placement.width > 28 {
-                        VStack(alignment: .leading, spacing: tall ? 4 : 1) {
+                        VStack(alignment: .leading, spacing: tall ? 4 : 2) {
                             Text(event.title)
-                                .font(.system(size: tall ? 11 : 9, weight: .medium))
-                                .lineLimit(tall ? 3 : laneHeight > 30 ? 2 : 1)
-                            if let location = event.location, !location.isEmpty {
+                                .font(.system(size: 11, weight: .medium))
+                                .lineLimit(tall ? 2 : 1)
+                                .truncationMode(.tail)
+                            if laneHeight > 30, let location = event.location, !location.isEmpty {
                                 Text(location.replacingOccurrences(of: "\n", with: ", "))
-                                    .font(.system(size: tall ? 9 : 7))
+                                    .font(.system(size: 9))
                                     .foregroundStyle(color.opacity(0.9))
-                                    .lineLimit(tall ? 2 : 1)
+                                    .lineLimit(1)
+                                    .truncationMode(.tail)
                             }
                         }
                         Spacer(minLength: 0)
@@ -407,10 +413,17 @@ private struct HomeCalendarDayLane: View {
         CalendarTimelineGeometry.position(of: date, in: day.visibleInterval, pointsPerHour: HomeCalendarGeometry.pointsPerHour)
     }
 
-    private func isTickUnderGapMarker(_ tick: Date) -> Bool {
-        guard let gapMarkerOffset else { return false }
-        let leading = min(position(tick) + 4, day.width - 34)
-        return leading < gapMarkerOffset + 30 && leading + 34 > gapMarkerOffset - 30
+    private func isTickUnderTimeMarker(_ tick: Date) -> Bool {
+        let markerLeading: Double
+        if let gapMarkerOffset {
+            markerLeading = gapMarkerOffset - homeCalendarTimeCapsuleWidth / 2
+        } else if day.isTimeVisible(now) {
+            markerLeading = min(max(0, position(now) - homeCalendarTimeCapsuleWidth / 2), day.width - homeCalendarTimeCapsuleWidth)
+        } else {
+            return false
+        }
+        let leading = min(position(tick) + 4, day.width - homeCalendarHourLabelWidth)
+        return leading < markerLeading + homeCalendarTimeCapsuleWidth && leading + homeCalendarHourLabelWidth > markerLeading
     }
 
     private func tickLabel(_ tick: Date) -> String {
@@ -451,13 +464,14 @@ private struct HomeCalendarGapTimeMarker: View {
             Rectangle().fill(.red).frame(width: 1.5, height: 80)
                 .overlay { Rectangle().fill(.red.opacity(highlighted ? 0.18 : 0)).frame(width: 9) }
             Text(now.formatted(.dateTime.hour().minute()))
-                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .font(.system(size: 11, weight: .semibold, design: .monospaced))
                 .fixedSize()
                 .padding(.horizontal, 4)
                 .background(.red, in: Capsule())
                 .overlay { Capsule().stroke(.white.opacity(highlighted ? 0.9 : 0), lineWidth: 1) }
+                .frame(width: homeCalendarTimeCapsuleWidth)
         }
-        .frame(width: 60, height: 100, alignment: .top)
+        .frame(width: homeCalendarTimeCapsuleWidth, height: 100, alignment: .top)
         .allowsHitTesting(false)
         .accessibilityLabel("Current time \(now.formatted(date: .omitted, time: .shortened)), between displayed day ranges")
     }
