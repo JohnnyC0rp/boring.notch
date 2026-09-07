@@ -417,7 +417,7 @@ private struct CalendarTimelineTrack: View {
                         .fill(color)
                         .frame(width: 2)
                     if placement.width > 28 {
-                        VStack(alignment: .leading, spacing: laneHeight > 40 ? 3 : 1) {
+                        VStack(alignment: .leading, spacing: laneHeight >= 52 ? 6 : 1) {
                             Text(event.title)
                                 .font(.system(size: 11, weight: .medium))
                                 .lineLimit(laneHeight >= 52 ? 3 : 1)
@@ -430,6 +430,7 @@ private struct CalendarTimelineTrack: View {
                                     .truncationMode(.tail)
                             }
                         }
+                        .multilineTextAlignment(.leading)
                         Spacer(minLength: 0)
                     }
                 }
