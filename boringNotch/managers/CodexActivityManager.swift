@@ -18,6 +18,8 @@ final class CodexActivityManager: ObservableObject {
             if phase != oldValue { Log.codex.debug("Activity phase: \(self.phase.rawValue, privacy: .public)") }
         }
     }
+    @Published private(set) var activeCount = 0
+    var level: CodexActivityLevel { CodexActivityLevel(activeCount: activeCount) }
     var isActive: Bool { phase.isInProgress }
     var statusText: String { phase.statusText }
 
@@ -49,7 +51,14 @@ final class CodexActivityManager: ObservableObject {
     func stopMonitoring() {
         monitoringTask?.cancel()
         monitoringTask = nil
-        phase = .offline
+        apply(nil)
+    }
+
+    func apply(_ snapshot: CodexActivitySnapshot?, at now: Date = Date()) {
+        let nextPhase = snapshot?.validatedPhase(at: now) ?? .offline
+        let nextCount = snapshot?.validatedActiveCount(at: now) ?? 0
+        if activeCount != nextCount { activeCount = nextCount }
+        if phase != nextPhase { phase = nextPhase }
     }
 
     private func refresh() async {
@@ -59,15 +68,14 @@ final class CodexActivityManager: ObservableObject {
             guard !Task.isCancelled else { return }
             guard let response = response as? HTTPURLResponse,
                   response.statusCode == 200, data.count <= 4096 else {
-                phase = .offline
+                apply(nil)
                 return
             }
-            phase = try JSONDecoder().decode(CodexActivitySnapshot.self, from: data)
-                .validatedPhase(at: Date())
+            apply(try JSONDecoder().decode(CodexActivitySnapshot.self, from: data))
         } catch {
             guard !Task.isCancelled else { return }
             // A disconnected bird stays still instead of pretending to be busy.
-            phase = .offline
+            apply(nil)
         }
     }
 }

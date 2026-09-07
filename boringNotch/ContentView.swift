@@ -42,6 +42,7 @@ struct ContentView: View {
 
     @Default(.showNotHumanFace) var showNotHumanFace
     @Default(.codexAvatarStyle) private var codexAvatarStyle
+    @Default(.codexActivityEnabled) private var codexActivityEnabled
 
     // Use standardized animations from StandardAnimations enum
     private let animationSpring = StandardAnimations.interactive
@@ -745,7 +746,7 @@ struct ContentView: View {
                 .frame(width: musicActivityCenterWidth)
 
             HStack {
-                if !musicManager.isPlaying && showNotHumanFace && codexAvatarStyle != .smile {
+                if !musicManager.isPlaying && showNotHumanFace {
                     codexAvatar.scaleEffect(0.8).frame(width: 18, height: 14)
                 } else {
                     MusicVisualizer(
@@ -1009,20 +1010,27 @@ extension ContentView {
                 .fill(.black)
                 .frame(width: vm.closedNotchSize.width + 20)
             let faceScale = min(1.0, displayClosedNotchHeight / 30.0)
-            if codexAvatarStyle == .smile {
-                AnimatedFace(height: 24.0 * faceScale, width: 30.0 * faceScale)
-            } else {
-                codexAvatar.scaleEffect(faceScale)
-                    .frame(width: 30 * faceScale, height: 24 * faceScale)
-            }
+            codexAvatar.scaleEffect(faceScale)
+                .frame(width: 30 * faceScale, height: 24 * faceScale)
         }.frame(
             height: displayClosedNotchHeight,
             alignment: .center
         )
     }
 
+    private var effectiveCodexAvatarStyle: CodexAvatarStyle {
+        .selected(manual: codexAvatarStyle, level: codexActivity.level, followsActivity: codexActivityEnabled)
+    }
+
     private var codexAvatar: some View {
-        CodexAvatarView(style: codexAvatarStyle, isActive: codexActivity.isActive)
+        Group {
+            if effectiveCodexAvatarStyle == .smile {
+                AnimatedFace(height: 24, width: 30)
+            } else {
+                CodexAvatarView(style: effectiveCodexAvatarStyle, isActive: codexActivityEnabled && codexActivity.isActive,
+                                speedMultiplier: codexActivityEnabled ? codexActivity.level.speedMultiplier : 1)
+            }
+        }
             .overlay(alignment: .bottomTrailing) {
                 if codexActivity.phase == .waiting || codexActivity.phase == .error {
                     Circle().fill(codexActivity.phase == .waiting ? Color.orange : .red)

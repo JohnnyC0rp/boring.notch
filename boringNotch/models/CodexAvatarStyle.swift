@@ -15,6 +15,16 @@ enum CodexAvatarStyle: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    static func selected(manual: Self, level: CodexActivityLevel, followsActivity: Bool, previewing: Bool = false) -> Self {
+        guard followsActivity, !previewing else { return manual }
+        switch level.tier {
+        case .smile: return .smile
+        case .syncing: return .lines
+        case .spin: return .orbit
+        case .iris: return .colorfulOrbit
+        }
+    }
+
     var displayName: String {
         switch self {
         case .smile: return "Smile"

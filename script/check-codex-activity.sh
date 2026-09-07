@@ -9,9 +9,8 @@ swiftc -swift-version 5 -o "$build_dir/codex-activity-tests" \
   "$repo_dir/boringNotch/models/CodexActivityPhase.swift" \
   "$repo_dir/boringNotch/models/CodexAvatarStyle.swift" \
   "$repo_dir/boringNotch/components/Notch/CodexAvatarView.swift" \
+  "$repo_dir/boringNotch/components/AnimatedFace.swift" \
+  "$repo_dir/boringNotch/helpers/Log.swift" \
+  "$repo_dir/boringNotch/managers/CodexActivityManager.swift" \
   "$repo_dir/tests/CodexActivityTests.swift"
 "$build_dir/codex-activity-tests"
-swiftc -swift-version 5 -typecheck \
-  "$repo_dir/boringNotch/helpers/Log.swift" \
-  "$repo_dir/boringNotch/models/CodexActivityPhase.swift" \
-  "$repo_dir/boringNotch/managers/CodexActivityManager.swift"

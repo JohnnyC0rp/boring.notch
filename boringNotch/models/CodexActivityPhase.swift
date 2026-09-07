@@ -7,6 +7,33 @@
 
 import Foundation
 
+enum CodexActivityTier: Equatable {
+    case smile, syncing, spin, iris
+}
+
+struct CodexActivityLevel: Equatable {
+    let activeCount: Int
+
+    init(activeCount: Int) {
+        self.activeCount = max(0, activeCount)
+    }
+
+    var tier: CodexActivityTier {
+        switch activeCount {
+        case 0: return .smile
+        case 1...2: return .syncing
+        case 3: return .spin
+        default: return .iris
+        }
+    }
+
+    var speedMultiplier: Double {
+        guard activeCount >= 4 else { return 1 }
+        let extra = Double(activeCount - 4)
+        return 1.15 + 1.35 * extra / (extra + 6)
+    }
+}
+
 enum CodexActivityPhase: String, Decodable {
     case offline, idle, active, waiting, error
 
@@ -36,5 +63,9 @@ struct CodexActivitySnapshot: Decodable {
               age >= -2, age <= 8, activeCount >= 0,
               phase.isInProgress == (activeCount > 0) else { return .offline }
         return phase
+    }
+
+    func validatedActiveCount(at now: Date) -> Int {
+        validatedPhase(at: now).isInProgress ? activeCount : 0
     }
 }
