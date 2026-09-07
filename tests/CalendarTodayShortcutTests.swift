@@ -33,10 +33,10 @@ struct CalendarTodayShortcutTests {
         let other = TestPanel(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
         var checks = 0
         func event(_ text: String = "t", flags: NSEvent.ModifierFlags = [], window: NSWindow? = nil,
-                   type: NSEvent.EventType = .keyDown, repeated: Bool = false) -> NSEvent {
+                   type: NSEvent.EventType = .keyDown, repeated: Bool = false, keyCode: UInt16 = 17) -> NSEvent {
             NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags, timestamp: 0,
                              windowNumber: (window ?? panel).windowNumber, context: nil,
-                             characters: text, charactersIgnoringModifiers: text, isARepeat: repeated, keyCode: 17)!
+                             characters: text, charactersIgnoringModifiers: text, isARepeat: repeated, keyCode: keyCode)!
         }
         func expect(_ condition: Bool, _ message: String) {
             precondition(condition, message)
@@ -45,10 +45,14 @@ struct CalendarTodayShortcutTests {
         expect(CalendarTodayShortcutRouting.shouldHandle(event(), in: panel), "Plain T returns to today")
         expect(CalendarTodayShortcutRouting.shouldHandle(event("T", flags: .shift), in: panel), "Uppercase T is supported")
         expect(CalendarTodayShortcutRouting.shouldHandle(event("T", flags: .capsLock), in: panel), "Caps Lock does not change the shortcut")
+        expect(CalendarTodayShortcutRouting.shouldHandle(event("е", keyCode: 17), in: panel), "Physical T works with the Russian layout")
+        expect(!CalendarTodayShortcutRouting.shouldHandle(event("е", keyCode: 14), in: panel), "The same foreign letter on another physical key is unaffected")
+        expect(CalendarTodayShortcutRouting.shouldHandle(event("t", keyCode: 14), in: panel), "Literal T is supported on alternate keyboard layouts")
+        expect(!CalendarTodayShortcutRouting.shouldHandle(event("е", flags: .command, keyCode: 17), in: panel), "Physical T preserves modified shortcuts")
         for flags: NSEvent.ModifierFlags in [.command, .control, .option, .function, [.command, .shift]] {
             expect(!CalendarTodayShortcutRouting.shouldHandle(event(flags: flags), in: panel), "Modified shortcuts keep their original actions")
         }
-        expect(!CalendarTodayShortcutRouting.shouldHandle(event("x"), in: panel), "Other letters are unaffected")
+        expect(!CalendarTodayShortcutRouting.shouldHandle(event("x", keyCode: 7), in: panel), "Other letters are unaffected")
         expect(!CalendarTodayShortcutRouting.shouldHandle(event(type: .keyUp), in: panel), "Key up does not repeat the action")
         expect(!CalendarTodayShortcutRouting.shouldHandle(event(window: other), in: panel), "Other windows are unaffected")
         panel.keyForTest = false
@@ -59,6 +63,7 @@ struct CalendarTodayShortcutTests {
         editor.isEditable = true
         panel.makeFirstResponder(editor)
         expect(!CalendarTodayShortcutRouting.shouldHandle(event(), in: panel), "Typing T in editable text is preserved")
+        expect(!CalendarTodayShortcutRouting.shouldHandle(event("е", keyCode: 17), in: panel), "Typing with the Russian layout in editable text is preserved")
         editor.isEditable = false
         expect(CalendarTodayShortcutRouting.shouldHandle(event(), in: panel), "Selectable event details still allow Today")
 
@@ -80,6 +85,10 @@ struct CalendarTodayShortcutTests {
             expect(handler.handleLocalEvent(event()) == nil && actions == previousActions + 1, "T works after focus recovery")
             expect(handler.handleLocalEvent(event(repeated: true)) == nil && actions == previousActions + 1, "Held T does not repeat Today")
         }
+
+        let beforeRussianKey = actions
+        expect(handler.handleLocalEvent(event("е", keyCode: 17)) == nil && actions == beforeRussianKey + 1,
+               "A physical T event invokes Today after interaction recovery in the Russian layout")
 
         // Reproduce a Clipboard field editor lingering after its tab disappears.
         editor.isEditable = true

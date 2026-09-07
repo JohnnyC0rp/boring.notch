@@ -27,8 +27,9 @@ private struct CalendarTodayKeyHandler: NSViewRepresentable {
 @MainActor
 enum CalendarTodayShortcutRouting {
     static func shouldHandle(_ event: NSEvent, in window: NSWindow) -> Bool {
+        // ANSI T stays available when another keyboard layout maps it to a different letter.
         guard event.type == .keyDown, event.window === window, window.isKeyWindow,
-              event.charactersIgnoringModifiers?.lowercased() == "t",
+              (event.keyCode == 17 || event.charactersIgnoringModifiers?.lowercased() == "t"),
               event.modifierFlags.intersection([.command, .control, .option, .function]).isEmpty else { return false }
         if let editor = window.firstResponder as? NSTextView, editor.isEditable { return false }
         return true
