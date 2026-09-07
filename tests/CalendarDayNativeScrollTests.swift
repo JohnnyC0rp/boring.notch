@@ -126,12 +126,30 @@ private final class CalendarDayScrollTestDocument: NSView {
         container.scrollView.documentView = nil
         container.gutter.documentView = nil
 
+        var immediateCallbacks: [NSPoint] = []
+        scrollView.move(to: NSPoint(x: -100, y: 100000)) {
+            immediateCallbacks.append(scrollView.contentView.bounds.origin)
+        }
+        expect(immediateCallbacks.count == 1, "A sized viewport completes movement exactly once")
+        expect(immediateCallbacks.first == NSPoint(x: 0, y: maximumY),
+               "The immediate callback observes both axes after clamping")
+        scrollView.needsLayout = true
+        scrollView.layoutSubtreeIfNeeded()
+        expect(immediateCallbacks.count == 1, "A later layout never repeats an immediate callback")
+
         let initial = CalendarDayNativeScrollView(frame: .zero)
         initial.borderType = .noBorder
         initial.documentView = CalendarDayScrollTestDocument(frame: NSRect(x: 0, y: 0, width: 12 * 96, height: 730))
-        initial.move(to: NSPoint(x: 12 * 96, y: 318))
+        var initialCallbacks: [NSPoint] = []
+        initial.move(to: NSPoint(x: 12 * 96, y: 318)) {
+            initialCallbacks.append(initial.contentView.bounds.origin)
+        }
         expect(initial.requestedOrigin == NSPoint(x: 12 * 96, y: 318),
                "A Today reset after 19:00 is retained until the viewport has a size")
+        expect(initialCallbacks.isEmpty, "A zero-size viewport does not complete an unapplied movement")
+        initial.needsLayout = true
+        initial.layoutSubtreeIfNeeded()
+        expect(initialCallbacks.isEmpty, "Layout with no viewport size keeps the completion pending")
         initial.frame = NSRect(x: 0, y: 0, width: 545, height: 202)
         initial.needsLayout = true
         initial.layoutSubtreeIfNeeded()
@@ -139,7 +157,40 @@ private final class CalendarDayScrollTestDocument: NSView {
                "The first sized layout clamps a late Today reset to the visible daytime window")
         expect(abs(initial.contentView.bounds.minY - 318) < 0.01,
                "Clamping a late hour never moves Today to a different day row")
+        expect(initialCallbacks.count == 1, "The first sized layout completes the pending movement exactly once")
+        expect(initialCallbacks.first == NSPoint(x: 12 * 96 - initial.contentView.bounds.width, y: 318),
+               "A deferred callback observes the final clamped hour and requested day")
+        initial.needsLayout = true
+        initial.layoutSubtreeIfNeeded()
+        expect(initialCallbacks.count == 1, "Further layouts never repeat a deferred callback")
         initial.documentView = nil
+
+        let replacement = CalendarDayNativeScrollView(frame: .zero)
+        replacement.borderType = .noBorder
+        replacement.documentView = CalendarDayScrollTestDocument(
+            frame: NSRect(x: 0, y: 0, width: 12 * 96, height: 730))
+        var staleCallbackCount = 0
+        var replacementCallbacks: [NSPoint] = []
+        replacement.move(to: NSPoint(x: 40, y: 80)) { staleCallbackCount += 1 }
+        replacement.move(to: NSPoint(x: 100000, y: -100)) {
+            replacementCallbacks.append(replacement.contentView.bounds.origin)
+        }
+        expect(staleCallbackCount == 0 && replacementCallbacks.isEmpty,
+               "Neither pending completion fires before the viewport is sized")
+        expect(replacement.requestedOrigin == NSPoint(x: 100000, y: -100),
+               "The newest pending movement replaces the stale requested position")
+        replacement.frame = NSRect(x: 0, y: 0, width: 545, height: 202)
+        replacement.needsLayout = true
+        replacement.layoutSubtreeIfNeeded()
+        expect(staleCallbackCount == 0 && replacementCallbacks.count == 1,
+               "Only the newest pending completion fires when the viewport becomes ready")
+        expect(replacementCallbacks.first == NSPoint(x: 12 * 96 - replacement.contentView.bounds.width, y: 0),
+               "The replacement callback observes its own clamped coordinates on both axes")
+        replacement.needsLayout = true
+        replacement.layoutSubtreeIfNeeded()
+        expect(staleCallbackCount == 0 && replacementCallbacks.count == 1,
+               "Later layouts do not revive stale or already completed callbacks")
+        replacement.documentView = nil
 
         // A tiny document has no secret extra days hiding beyond its edges.
         document.setFrameSize(NSSize(width: 80, height: 60))

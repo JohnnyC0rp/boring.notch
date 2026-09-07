@@ -8,6 +8,7 @@ struct CalendarTimelineView: View {
     @ObservedObject private var coordinator = BoringViewCoordinator.shared
     @Default(.hideAllDayEvents) private var hideAllDayEvents
     @Default(.hideCompletedReminders) private var hideCompletedReminders
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var windowCenter: Date
     @State private var displayedDate: Date
     @State private var targetDay: Date
@@ -16,6 +17,9 @@ struct CalendarTimelineView: View {
     @State private var selectedEvent: EventModel?
     @State private var reloadID = 0
     @State private var resetID = 0
+    @State private var todayResetID: Int?
+    @State private var todayFlashID = 0
+    @State private var todayHighlighted = false
     @State private var pendingInitialPosition = true
     @State private var loading = true
     @State private var calendarAccess = EKEventStore.authorizationStatus(for: .event)
@@ -49,7 +53,8 @@ struct CalendarTimelineView: View {
                         let ranges = visibleRanges
                         let width = (ranges.map(\.duration).max() ?? 12 * 3600) / 3600 * CalendarDayStackGeometry.pointsPerHour
                         CalendarDayScrollView(days: days, visibleRanges: ranges, targetDay: targetDay, targetTime: targetTime,
-                                              resetID: resetID, onScroll: didScroll) {
+                                              focusCurrentTime: todayResetID == resetID, resetID: resetID,
+                                              onScroll: didScroll, onPositionApplied: didPosition) {
                             VStack(spacing: CalendarDayStackGeometry.rowSpacing) {
                                 ForEach(days) { day in dayLabel(day, now: context.date) }
                             }
@@ -57,7 +62,7 @@ struct CalendarTimelineView: View {
                             VStack(alignment: .leading, spacing: CalendarDayStackGeometry.rowSpacing) {
                                 ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
                                     CalendarTimelineTrack(day: day.interval, range: ranges[index], events: events(on: day.interval).filter { !$0.isAllDay && !$0.type.isReminder },
-                                                          selectedEvent: selectedEvent, now: context.date, width: width) {
+                                                          selectedEvent: selectedEvent, now: context.date, width: width, highlighted: todayHighlighted) {
                                         select($0, on: day.id)
                                     }
                                 }
@@ -82,6 +87,13 @@ struct CalendarTimelineView: View {
         .frame(height: 238, alignment: .top)
         .calendarTodayShortcut { goToToday() }
         .task(id: requestID) { await reload() }
+        .task(id: todayFlashID) {
+            guard todayFlashID > 0 else { return }
+            withAnimation(nil) { todayHighlighted = true }
+            do { try await Task.sleep(for: .milliseconds(700)) } catch { return }
+            withAnimation(reduceMotion ? nil : .easeOut(duration: 0.45)) { todayHighlighted = false }
+        }
+        .onDisappear { todayHighlighted = false; todayResetID = nil; todayFlashID = 0 }
         .onChange(of: manager.selectedCalendarIDs) { _, _ in reloadID += 1 }
         .onChange(of: coordinator.calendarDate) { _, date in
             if !Calendar.current.isDate(date, inSameDayAs: displayedDate) { jump(to: date) }
@@ -163,6 +175,13 @@ struct CalendarTimelineView: View {
             .frame(width: 7, height: 90).padding(.trailing, 1)
             .allowsHitTesting(false).accessibilityHidden(true)
         }
+        .overlay(alignment: .topLeading) {
+            if let y = CalendarDayStackGeometry.hiddenTimeOffset(for: now, in: day.interval, visibleRange: visibleRange(for: day.id)) {
+                CalendarTimelineTimeBadge(time: now, highlighted: todayHighlighted)
+                    .frame(width: 47, height: 12).offset(y: y - 6)
+                    .allowsHitTesting(false)
+            }
+        }
     }
 
     private var visibleRanges: [DateInterval] {
@@ -187,6 +206,8 @@ struct CalendarTimelineView: View {
     }
 
     private func select(_ event: EventModel, on date: Date) {
+        todayResetID = nil
+        todayHighlighted = false
         selectedEvent = event
         windowCenter = date
         displayedDate = date
@@ -209,8 +230,10 @@ struct CalendarTimelineView: View {
 
     private func didScroll(to position: CalendarDayStackGeometry.Position, vertical: Bool) {
         pendingInitialPosition = false
+        todayResetID = nil
+        todayHighlighted = false
         if vertical { selectedEvent = nil }
-        if !Calendar.current.isDate(displayedDate, inSameDayAs: position.day) {
+        if vertical && !Calendar.current.isDate(displayedDate, inSameDayAs: position.day) {
             displayedDate = position.day
             coordinator.calendarDate = position.day
         }
@@ -218,6 +241,8 @@ struct CalendarTimelineView: View {
     }
 
     private func jump(to date: Date, currentTime: Bool = false) {
+        todayResetID = nil
+        todayHighlighted = false
         let day = Calendar.current.startOfDay(for: date)
         selectedEvent = nil
         windowCenter = day
@@ -229,10 +254,19 @@ struct CalendarTimelineView: View {
         resetID += 1
     }
 
-    private func goToToday() { jump(to: Date(), currentTime: true) }
+    private func goToToday() {
+        jump(to: Date(), currentTime: true)
+        todayResetID = resetID
+    }
+
+    private func didPosition(_ appliedID: Int) {
+        guard appliedID == todayResetID else { return }
+        todayFlashID += 1
+    }
 
     private static func initialTime(for date: Date, currentTime: Bool = false) -> Date {
-        if currentTime || (Defaults[.autoScrollToNextEvent] && Calendar.current.isDateInToday(date)) {
+        if currentTime { return Date() }
+        if Defaults[.autoScrollToNextEvent] && Calendar.current.isDateInToday(date) {
             return Date().addingTimeInterval(-3600)
         }
         return Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: date) ?? date
@@ -290,6 +324,7 @@ private struct CalendarTimelineTrack: View {
     let selectedEvent: EventModel?
     let now: Date
     let width: CGFloat
+    let highlighted: Bool
     private var pointsPerHour: Double { CalendarDayStackGeometry.pointsPerHour }
     let select: (EventModel) -> Void
 
@@ -329,7 +364,9 @@ private struct CalendarTimelineTrack: View {
                     .menuStyle(.borderlessButton).fixedSize().offset(x: group.x, y: 58)
                 }
                 if currentDay {
-                    Rectangle().fill(.red).frame(width: 1.5).offset(x: progress).allowsHitTesting(false)
+                    Rectangle().fill(.red).frame(width: 1.5)
+                        .shadow(color: .red.opacity(highlighted ? 0.9 : 0), radius: highlighted ? 6 : 0)
+                        .offset(x: progress).allowsHitTesting(false)
                 }
             }
             .frame(width: width, height: 76, alignment: .topLeading)
@@ -340,8 +377,8 @@ private struct CalendarTimelineTrack: View {
                         .offset(x: tick == range.end ? max(0, range.duration / 3600 * pointsPerHour - 31) : CalendarTimelineGeometry.position(of: tick, in: range, pointsPerHour: pointsPerHour) + 4)
                 }
                 if currentDay {
-                    Text(now.formatted(.dateTime.hour().minute())).font(.system(size: 9, weight: .semibold, design: .monospaced))
-                        .padding(.horizontal, 4).background(.red, in: Capsule()).offset(x: max(0, progress - 19))
+                    CalendarTimelineTimeBadge(time: now, highlighted: highlighted)
+                        .offset(x: max(0, progress - 19))
                 }
             }
             .frame(width: width, height: 14, alignment: .topLeading)
@@ -426,6 +463,21 @@ private struct CalendarTimelineTrack: View {
         return groups
     }
 
+}
+
+private struct CalendarTimelineTimeBadge: View {
+    let time: Date
+    let highlighted: Bool
+
+    var body: some View {
+        Text(time.formatted(.dateTime.hour(.twoDigits(amPM: .omitted)).minute(.twoDigits)))
+            .font(.system(size: 9, weight: .semibold, design: .monospaced))
+            .foregroundStyle(.white).padding(.horizontal, 4)
+            .background(.red, in: Capsule())
+            .overlay { Capsule().stroke(.white.opacity(highlighted ? 0.95 : 0), lineWidth: 1.5) }
+            .shadow(color: .red.opacity(highlighted ? 0.7 : 0), radius: highlighted ? 6 : 0)
+            .accessibilityLabel("Current time \(time.formatted(date: .omitted, time: .shortened))")
+    }
 }
 
 private struct CalendarTimelineDetails: View {
