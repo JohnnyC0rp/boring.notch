@@ -63,6 +63,21 @@ enum HomeCalendarGeometry {
         return nil
     }
 
+    /// Hidden hours share a visual gap; its midpoint marks now without pretending the gap is a time scale.
+    static func gapOffset(of date: Date, in days: [Day]) -> Double? {
+        guard let index = days.firstIndex(where: { date >= $0.interval.start && date < $0.interval.end }) else { return nil }
+        let day = days[index]
+        let leading = offset(of: day.id, in: days)
+        if date < day.visibleInterval.start, index > 0 { return leading - daySpacing / 2 }
+        if date >= day.visibleInterval.end, index < days.count - 1 { return leading + day.width + daySpacing / 2 }
+        return nil
+    }
+
+    static func currentTimeOffset(of date: Date, in days: [Day]) -> Double? {
+        guard days.contains(where: { date >= $0.interval.start && date < $0.interval.end }) else { return nil }
+        return gapOffset(of: date, in: days) ?? offset(of: date, in: days)
+    }
+
     /// Preserve the exact pixel anchor when a rolling window changes, including inside a gap.
     static func rebasedOffset(_ value: Double, from oldDays: [Day], to newDays: [Day]) -> Double {
         guard let date = date(at: value, in: oldDays) else { return 0 }
@@ -70,7 +85,10 @@ enum HomeCalendarGeometry {
     }
 
     /// Reset the whole viewport inside its requested day, even before 07:00 or after 19:00.
-    static func viewportOffset(near date: Date, on requestedDay: Date, viewportWidth: Double, in days: [Day]) -> Double {
+    static func viewportOffset(near date: Date, on requestedDay: Date, viewportWidth: Double, in days: [Day], centered: Bool = false) -> Double {
+        if centered, let marker = currentTimeOffset(of: date, in: days) {
+            return min(max(0, marker - viewportWidth / 2), max(0, width(of: days) - viewportWidth))
+        }
         guard let day = days.first(where: { requestedDay >= $0.interval.start && requestedDay < $0.interval.end }) else {
             return offset(of: date, in: days)
         }

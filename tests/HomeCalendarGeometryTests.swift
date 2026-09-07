@@ -67,7 +67,8 @@ enum HomeCalendarGeometryTests {
         }
         verifyCroppedHours(calendar: utc)
         verifyDayGaps(calendar: utc)
-        print("Home calendar geometry: all checks passed (cropped 07–19 window, day gaps, early/late/overnight events, reset bounds, DST, inverse mapping, 2,400 scrolling steps).")
+        verifyCurrentTimeGap(calendar: utc)
+        print("Home calendar geometry: all checks passed (cropped 07–19 window, day gaps/current-time centering, early/late/overnight events, reset bounds, DST, inverse mapping, 2,400 scrolling steps).")
     }
 
     private static func verifyDayLength(_ value: String, hours: Double, calendar: Calendar) {
@@ -206,6 +207,36 @@ enum HomeCalendarGeometryTests {
             let lateReset = HomeCalendarGeometry.viewportOffset(near: preceding.interval.end, on: preceding.id, viewportWidth: 315, in: days)
             require(lateReset + 315 == gapStart, "A late Today viewport ends before the visual gap")
         }
+    }
+
+    private static func verifyCurrentTimeGap(calendar: Calendar) {
+        let today = date("2026-09-07T12:00:00Z")
+        let days = HomeCalendarGeometry.days(centeredOn: today, calendar: calendar)
+        let leading = HomeCalendarGeometry.offset(of: days[3].id, in: days)
+        let late = date("2026-09-07T22:58:00Z")
+        let early = date("2026-09-07T05:12:00Z")
+        require(HomeCalendarGeometry.gapOffset(of: late, in: days) == leading + days[3].width + 9,
+                "Hidden evening time appears in the following visual gap")
+        require(HomeCalendarGeometry.gapOffset(of: early, in: days) == leading - 9,
+                "Hidden morning time appears in the preceding visual gap")
+        require(HomeCalendarGeometry.gapOffset(of: today, in: days) == nil,
+                "Visible time keeps its ordinary in-day marker")
+        require(HomeCalendarGeometry.currentTimeOffset(of: today, in: days) == HomeCalendarGeometry.offset(of: today, in: days),
+                "Centering a visible time preserves its accurate elapsed-time position")
+        require(HomeCalendarGeometry.currentTimeOffset(of: days[0].id.addingTimeInterval(-1), in: days) == nil,
+                "A date outside the loaded window has no current-time marker")
+        for now in [early, today, late, date("2026-09-07T19:00:00Z")] {
+            let marker = HomeCalendarGeometry.currentTimeOffset(of: now, in: days)!
+            let viewport = HomeCalendarGeometry.viewportOffset(near: now, on: today, viewportWidth: 315, in: days, centered: true)
+            require(abs(viewport + 157.5 - marker) < 0.000001,
+                    "Today centers the actual marker even when it is in an overnight gap")
+            require(calendar.isDate(now, inSameDayAs: today), "A marker target retains its actual current-day identity")
+        }
+        let extended = HomeCalendarGeometry.days(centeredOn: today, events: [
+            .init(id: "late", start: date("2026-09-07T22:00:00Z"), end: date("2026-09-07T23:00:00Z"))
+        ], calendar: calendar)
+        require(HomeCalendarGeometry.gapOffset(of: late, in: extended) == nil,
+                "An event that exposes the current time moves the marker out of the gap onto the elapsed-time ruler")
     }
 
     private static func calendar(_ zone: String) -> Calendar {

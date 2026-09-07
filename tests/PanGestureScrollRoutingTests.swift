@@ -106,6 +106,30 @@ private struct ScrollRoutingFixture: View {
         precondition(Calendar.current.isDate(HomeCalendarGeometry.date(at: initialScroll.contentView.bounds.midX, in: days)!, inSameDayAs: today), "Initial after-hours view must remain on today")
         checks += 2
         initialScroll.documentView = nil
+
+        let centeredScroll = HomeCalendarNativeScrollView(frame: .zero)
+        centeredScroll.borderType = .noBorder
+        centeredScroll.documentView = NSView(frame: NSRect(x: 0, y: 0, width: HomeCalendarGeometry.width(of: days), height: 100))
+        var completed = 0
+        var reportedScrolls = 0
+        centeredScroll.didScroll = { reportedScrolls += 1 }
+        centeredScroll.position(on: today, near: late, in: days, centered: true) {
+            precondition(abs(centeredScroll.contentView.bounds.midX - HomeCalendarGeometry.currentTimeOffset(of: late, in: days)!) < 0.01,
+                         "Position completion must run after the hidden-time marker is centered")
+            completed += 1
+        }
+        precondition(completed == 0, "A zero-width initial layout must defer the Today highlight callback")
+        centeredScroll.frame = NSRect(x: 0, y: 0, width: 315, height: 100)
+        centeredScroll.layoutSubtreeIfNeeded()
+        precondition(completed == 1, "Position completion fires once after native layout resolves the viewport")
+        centeredScroll.position(on: today, near: late, in: days, centered: true) { completed += 1 }
+        precondition(completed == 2, "Today completion retriggers even when already centered at the same time")
+        centeredScroll.needsLayout = true
+        centeredScroll.layoutSubtreeIfNeeded()
+        precondition(completed == 2, "Ordinary native relayout must not retrigger the highlight")
+        precondition(reportedScrolls == 0, "Programmatic Today centering must preserve the selected day rather than report the adjacent gap date")
+        checks += 6
+        centeredScroll.documentView = nil
         print("PASS \(checks) native calendar wheel-routing checks")
     }
 }
