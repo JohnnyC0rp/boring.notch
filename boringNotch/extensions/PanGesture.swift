@@ -26,7 +26,8 @@ enum PanGestureScrollRouting {
         let point = contentView.superview?.convert(event.locationInWindow, from: nil) ?? event.locationInWindow
         var target = contentView.hitTest(point)
         while let view = target {
-            if view is NSScrollView { return true }
+            // Frozen calendar labels use a clip view and forward their wheel to the timeline.
+            if view is NSScrollView || view is NSClipView { return true }
             target = view.superview
         }
         return false
