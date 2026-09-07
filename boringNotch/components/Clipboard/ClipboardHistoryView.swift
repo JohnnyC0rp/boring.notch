@@ -99,10 +99,7 @@ struct ClipboardHistoryView: View {
         .onDisappear {
             searchIsFocused = false
             gridIsFocused = false
-            if let window = NSApp.keyWindow as? BoringNotchSkyLightWindow {
-                window.makeFirstResponder(nil)
-                window.resignKey()
-            }
+            // The next tab may already own the panel's keyboard responder.
         }
         .task(id: copiedID) {
             guard copiedID != nil else { return }
