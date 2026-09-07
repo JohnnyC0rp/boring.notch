@@ -8,6 +8,8 @@ struct CalendarMonthView: View {
     @ObservedObject private var coordinator = BoringViewCoordinator.shared
     @Default(.weekStartDay) private var weekStartDay
     @State private var displayedMonth = Date()
+    private let daySize: CGFloat = 16
+    private let columnSpacing: CGFloat = 10
 
     private var calendar: Calendar {
         var calendar = Calendar.current
@@ -19,27 +21,28 @@ struct CalendarMonthView: View {
         TimelineView(.periodic(from: .now, by: 60)) { context in
             VStack(spacing: 3) {
                 header(today: context.date)
-                HStack(spacing: 0) {
+                HStack(spacing: columnSpacing) {
                     ForEach(0..<7, id: \.self) { index in
                         let weekday = (calendar.firstWeekday - 1 + index) % 7
                         Text(calendar.veryShortStandaloneWeekdaySymbols[weekday])
                             .font(.system(size: 9, weight: .medium))
                             .foregroundStyle(.gray)
-                            .frame(maxWidth: .infinity)
+                            .frame(width: daySize, height: 9)
                     }
                 }
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 1) {
+                LazyVGrid(columns: Array(repeating: GridItem(.fixed(daySize), spacing: columnSpacing), count: 7), spacing: 0) {
                     ForEach(Array(CalendarMonthGeometry.cells(containing: displayedMonth, calendar: calendar).enumerated()), id: \.offset) { _, date in
                         if let date {
                             dayButton(date, today: context.date)
                         } else {
-                            Color.clear.frame(height: 15)
+                            Color.clear.frame(width: daySize, height: daySize)
                                 .accessibilityHidden(true)
                         }
                     }
                 }
             }
-            .frame(height: 130, alignment: .top)
+            .frame(width: 7 * daySize + 6 * columnSpacing, height: 130, alignment: .top)
+            .frame(maxWidth: .infinity, alignment: .trailing)
             .onChange(of: calendar.startOfDay(for: context.date)) { oldDay, newDay in
                 if calendar.isDate(displayedMonth, equalTo: oldDay, toGranularity: .month) {
                     displayedMonth = newDay
@@ -106,9 +109,8 @@ struct CalendarMonthView: View {
                 .font(.system(size: 10, weight: isToday ? .bold : .medium, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(isToday ? .white : calendar.isDateInWeekend(date) ? Color.gray : Color.white.opacity(0.86))
-                .frame(width: 21, height: 15)
+                .frame(width: daySize, height: daySize)
                 .background(isToday ? Color.red : .clear, in: RoundedRectangle(cornerRadius: 5))
-                .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel(date.formatted(date: .complete, time: .omitted))

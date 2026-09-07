@@ -17,13 +17,23 @@ struct MusicPlayerView: View {
     let albumArtNamespace: Namespace.ID
     let horizontalMediaGestureFeedback: CGFloat
     @Binding var isHoveringMusicArea: Bool
+    var compact: Bool = false
 
     var body: some View {
-        HStack {
-            AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).frame(width: 120).padding(.all, 5 * (vm.notchSize.height / 190))
-            MusicControlsView(horizontalMediaGestureFeedback: horizontalMediaGestureFeedback)
-                .drawingGroup()
-                .compositingGroup()
+        Group {
+            if compact {
+                MusicControlsView(
+                    horizontalMediaGestureFeedback: horizontalMediaGestureFeedback,
+                    compactArtworkNamespace: albumArtNamespace
+                )
+            } else {
+                HStack {
+                    AlbumArtView(vm: vm, albumArtNamespace: albumArtNamespace).frame(width: 120).padding(.all, 5 * (vm.notchSize.height / 190))
+                    MusicControlsView(horizontalMediaGestureFeedback: horizontalMediaGestureFeedback)
+                        .drawingGroup()
+                        .compositingGroup()
+                }
+            }
         }
         .contentShape(Rectangle())
         .onHover { hovering in
@@ -39,6 +49,7 @@ struct AlbumArtView: View {
     @ObservedObject var musicManager = MusicManager.shared
     @ObservedObject var vm: BoringViewModel
     let albumArtNamespace: Namespace.ID
+    var compact: Bool = false
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -107,8 +118,8 @@ struct AlbumArtView: View {
             AppIcon(for: musicManager.bundleIdentifier ?? "com.apple.Music")
                 .resizable()
                 .aspectRatio(contentMode: .fit)
-                .frame(width: 30, height: 30)
-                .offset(x: 10, y: 10)
+                .frame(width: compact ? 20 : 30, height: compact ? 20 : 30)
+                .offset(x: compact ? 5 : 10, y: compact ? 5 : 10)
                 .transition(.scale.combined(with: .opacity))
                 .zIndex(2)
         }
@@ -120,6 +131,7 @@ struct MusicControlsView: View {
     @EnvironmentObject var vm: BoringViewModel
     @ObservedObject var webcamManager = WebcamManager.shared
     let horizontalMediaGestureFeedback: CGFloat
+    var compactArtworkNamespace: Namespace.ID? = nil
     @State private var sliderValue: Double = 0
     @State private var dragging: Bool = false
     @State private var lastDragged: Date = .distantPast
@@ -127,8 +139,17 @@ struct MusicControlsView: View {
     @Default(.musicControlSlotLimit) private var slotLimit
 
     var body: some View {
-        VStack(alignment: .leading) {
-            songInfoAndSlider
+        VStack(alignment: .leading, spacing: compactArtworkNamespace == nil ? nil : 0) {
+            if let compactArtworkNamespace {
+                HStack(spacing: 10) {
+                    AlbumArtView(vm: vm, albumArtNamespace: compactArtworkNamespace, compact: true)
+                        .frame(width: 80, height: 80)
+                    songInfoAndSlider
+                }
+                .frame(height: 90)
+            } else {
+                songInfoAndSlider
+            }
             slotToolbar
         }
         .buttonStyle(PlainButtonStyle())
@@ -442,12 +463,13 @@ struct NotchHomeView: View {
             MusicPlayerView(
                 albumArtNamespace: albumArtNamespace,
                 horizontalMediaGestureFeedback: horizontalMediaGestureFeedback,
-                isHoveringMusicArea: $isHoveringMusicArea
+                isHoveringMusicArea: $isHoveringMusicArea,
+                compact: Defaults[.showCalendar]
             )
 
             if Defaults[.showCalendar] {
                 HomeCalendarView()
-                    .frame(width: shouldShowCamera ? 190 : 250)
+                    .frame(width: shouldShowCamera ? 190 : 315)
                     .onHover { isHovering in
                         vm.isHoveringCalendar = isHovering
                     }
