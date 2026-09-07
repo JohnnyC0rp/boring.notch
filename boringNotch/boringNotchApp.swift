@@ -90,6 +90,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        CodexActivityManager.shared.stopMonitoring()
         // Flush debounced shelf persistence to avoid losing recent changes
         ShelfStateViewModel.shared.flushSync()
 
@@ -312,6 +313,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        CodexActivityManager.shared.startMonitoring()
 
         NotificationCenter.default.addObserver(
             self,

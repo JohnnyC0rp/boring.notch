@@ -11,6 +11,10 @@ import SwiftUI
 struct Appearance: View {
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @Default(.sliderColor) var sliderColor
+    @Default(.codexAvatarStyle) private var codexAvatarStyle
+    @Default(.showNotHumanFace) private var showIdleAvatar
+    @ObservedObject private var codexActivity = CodexActivityManager.shared
+    @State private var previewAvatar = false
 
     let icons: [String] = ["logo2"]
     @State private var selectedIcon: String = "logo2"
@@ -69,11 +73,37 @@ struct Appearance: View {
             }
             Section {
                 Defaults.Toggle(key: .showNotHumanFace) {
-                    Text("Show cool face animation while inactive")
+                    Text("Show avatar when music is idle or paused")
+                }
+                Picker("Avatar", selection: $codexAvatarStyle) {
+                    ForEach(CodexAvatarStyle.allCases) { style in
+                        Text(style.displayName).tag(style)
+                    }
+                }
+                .disabled(!showIdleAvatar)
+                if codexAvatarStyle != .smile {
+                    HStack(spacing: 12) {
+                        CodexAvatarView(style: codexAvatarStyle, isActive: previewAvatar || codexActivity.isActive)
+                            .padding(6)
+                            .background(.black, in: RoundedRectangle(cornerRadius: 9))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(codexActivity.statusText).font(.caption)
+                            Text("Moves during work and while waiting for input. Amber means attention is needed.")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Preview") { previewAvatar = true }
+                            .disabled(previewAvatar)
+                    }
+                    .task(id: previewAvatar) {
+                        guard previewAvatar else { return }
+                        try? await Task.sleep(for: .seconds(3))
+                        previewAvatar = false
+                    }
                 }
             } header: {
                 HStack {
-                    Text("Additional features")
+                    Text("Idle avatar")
                 }
             }
         }

@@ -20,6 +20,7 @@ struct ContentView: View {
 
     @ObservedObject var coordinator = BoringViewCoordinator.shared
     @ObservedObject var musicManager = MusicManager.shared
+    @ObservedObject private var codexActivity = CodexActivityManager.shared
     @ObservedObject var batteryModel = BatteryStatusViewModel.shared
     @ObservedObject var brightnessManager = BrightnessManager.shared
     @ObservedObject var volumeManager = VolumeManager.shared
@@ -37,6 +38,7 @@ struct ContentView: View {
     @Namespace var albumArtNamespace
 
     @Default(.showNotHumanFace) var showNotHumanFace
+    @Default(.codexAvatarStyle) private var codexAvatarStyle
 
     // Use standardized animations from StandardAnimations enum
     private let animationSpring = StandardAnimations.interactive
@@ -425,11 +427,27 @@ struct ContentView: View {
                 .fill(.black)
                 .frame(width: vm.closedNotchSize.width + 20)
             let faceScale = min(1.0, displayClosedNotchHeight / 30.0)
-            MinimalFaceFeatures(height: 24.0 * faceScale, width: 30.0 * faceScale)
+            idleAvatar
+                .scaleEffect(faceScale)
+                .frame(width: 30 * faceScale, height: 24 * faceScale)
         }.frame(
             height: displayClosedNotchHeight,
             alignment: .center
         )
+    }
+
+    private var idleAvatar: some View {
+        CodexAvatarView(style: codexAvatarStyle, isActive: codexActivity.isActive)
+            .overlay(alignment: .bottomTrailing) {
+                if codexAvatarStyle != .smile && (codexActivity.phase == .waiting || codexActivity.phase == .error) {
+                    Circle()
+                        .fill(codexActivity.phase == .waiting ? Color.orange : .red)
+                        .frame(width: 5, height: 5)
+                        .overlay(Circle().stroke(.black, lineWidth: 1))
+                }
+            }
+            .help(codexAvatarStyle == .smile ? "Smile" : codexActivity.statusText)
+            .accessibilityLabel(codexAvatarStyle == .smile ? "Smile" : codexActivity.statusText)
     }
 
     @ViewBuilder
@@ -512,13 +530,17 @@ struct ContentView: View {
                 )
 
             HStack {
-                AudioSpectrumView(
-                    isPlaying: musicManager.isPlaying,
-                    tintColor: Defaults[.coloredSpectrogram]
-                    ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.5)
-                    : Color.gray
-                )
-                .frame(width: 20, height: 14)
+                if !musicManager.isPlaying && showNotHumanFace && codexAvatarStyle != .smile {
+                    idleAvatar
+                } else {
+                    AudioSpectrumView(
+                        isPlaying: musicManager.isPlaying,
+                        tintColor: Defaults[.coloredSpectrogram]
+                        ? Color(nsColor: musicManager.avgColor).ensureMinimumBrightness(factor: 0.5)
+                        : Color.gray
+                    )
+                    .frame(width: 20, height: 14)
+                }
             }
             .frame(
                 width: max(
