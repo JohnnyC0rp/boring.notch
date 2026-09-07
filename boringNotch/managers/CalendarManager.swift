@@ -183,6 +183,16 @@ class CalendarManager: ObservableObject {
         await updateEvents()
     }
 
+    /// A range query for the timeline that leaves the home calendar's selected day intact.
+    func events(from start: Date, to end: Date) async -> [EventModel] {
+        await reloadCalendarAndReminderLists()
+        let identifiers = selectedCalendarIDs
+        guard !identifiers.isEmpty else { return [] }
+        let result = await calendarService.events(from: start, to: end, calendars: Array(identifiers))
+        // EventKit's empty per-entity calendar list can mean every calendar.
+        return result.filter { identifiers.contains($0.calendar.id) }
+    }
+
     private func updateEvents() async {
         let calendarIDs = selectedCalendars.map { $0.id }
         let eventsResult = await calendarService.events(
