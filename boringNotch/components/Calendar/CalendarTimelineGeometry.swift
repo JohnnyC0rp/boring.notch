@@ -9,6 +9,16 @@ enum CalendarTimelineGeometry {
         let id: String
         let start: Date
         let end: Date
+        let isAllDay: Bool
+        let isReminder: Bool
+
+        init(id: String, start: Date, end: Date, isAllDay: Bool = false, isReminder: Bool = false) {
+            self.id = id
+            self.start = start
+            self.end = end
+            self.isAllDay = isAllDay
+            self.isReminder = isReminder
+        }
     }
 
     struct Placement: Identifiable {
@@ -24,6 +34,64 @@ enum CalendarTimelineGeometry {
         let start = calendar.startOfDay(for: date)
         let end = calendar.date(byAdding: .day, value: 1, to: start) ?? start
         return DateInterval(start: start, end: end)
+    }
+
+    /// Show local daytime by default, retaining the hours needed for timed events.
+    static func visibleRange(in day: DateInterval, events: [Interval], calendar: Calendar = .current) -> DateInterval {
+        var start = localBoundary(at: 7 * 60, in: day, calendar: calendar)
+        var end = localBoundary(at: 19 * 60, in: day, calendar: calendar)
+        for event in events where !event.isAllDay && !event.isReminder && event.end >= event.start {
+            let instant = event.start == event.end
+            guard event.start < day.end,
+                  event.end > day.start || (instant && event.start >= day.start) else { continue }
+            let clippedStart = max(event.start, day.start)
+            let clippedEnd = min(event.end, day.end)
+            if clippedStart < start {
+                let hour = calendar.component(.hour, from: clippedStart)
+                let roundedStart = localBoundary(at: hour * 60, in: day, calendar: calendar)
+                start = max(day.start, min(clippedStart, roundedStart))
+            }
+            if clippedEnd > end || (instant && clippedEnd >= end) {
+                // A point event at the right boundary still needs a visible hit target.
+                let effectiveEnd = instant ? min(day.end, clippedEnd.addingTimeInterval(1)) : clippedEnd
+                let time = calendar.dateComponents([.hour, .minute, .second, .nanosecond], from: effectiveEnd)
+                let exactHour = time.minute == 0 && time.second == 0 && time.nanosecond == 0
+                let nextHour = (time.hour ?? 23) + 1
+                // Round the wall clock, not a 3,600-second bucket: some DST changes last half an hour.
+                let roundedEnd = exactHour ? effectiveEnd : localBoundary(at: nextHour * 60, in: day, calendar: calendar)
+                end = min(day.end, max(effectiveEnd, roundedEnd))
+            }
+        }
+        return DateInterval(start: max(day.start, start), end: min(day.end, end))
+    }
+
+    /// Stacked days share the same local hour bounds, even when their dates differ.
+    static func sharedVisibleRanges(in days: [DateInterval], events: [Interval], calendar: Calendar = .current) -> [DateInterval] {
+        let ranges = days.map { visibleRange(in: $0, events: events, calendar: calendar) }
+        guard !ranges.isEmpty else { return [] }
+        func minuteOfDay(_ date: Date, day: DateInterval) -> Int {
+            if date >= day.end { return 24 * 60 }
+            let time = calendar.dateComponents([.hour, .minute], from: date)
+            return (time.hour ?? 0) * 60 + (time.minute ?? 0)
+        }
+        let firstMinute = zip(days, ranges).map { minuteOfDay($0.1.start, day: $0.0) }.min()!
+        let lastMinute = zip(days, ranges).map { minuteOfDay($0.1.end, day: $0.0) }.max()!
+        return zip(days, ranges).map { day, ownRange in
+            // Keep actual occurrences included through repeated or skipped local hours.
+            return DateInterval(start: max(day.start, min(localBoundary(at: firstMinute, in: day, calendar: calendar), ownRange.start)),
+                                end: min(day.end, max(localBoundary(at: lastMinute, in: day, calendar: calendar), ownRange.end)))
+        }
+    }
+
+    private static func localBoundary(at minute: Int, in day: DateInterval, calendar: Calendar) -> Date {
+        if minute == 0 { return day.start }
+        if minute >= 24 * 60 { return day.end }
+        var components = calendar.dateComponents([.era, .year, .month, .day], from: day.start)
+        components.hour = minute / 60
+        components.minute = minute % 60
+        components.second = 0
+        // Construct on this date: searching for a missing hour can jump to tomorrow.
+        return calendar.date(from: components) ?? day.start
     }
 
     static func position(of date: Date, in day: DateInterval, pointsPerHour: Double = pointsPerHour) -> Double {

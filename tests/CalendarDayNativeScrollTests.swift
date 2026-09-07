@@ -126,6 +126,21 @@ private final class CalendarDayScrollTestDocument: NSView {
         container.scrollView.documentView = nil
         container.gutter.documentView = nil
 
+        let initial = CalendarDayNativeScrollView(frame: .zero)
+        initial.borderType = .noBorder
+        initial.documentView = CalendarDayScrollTestDocument(frame: NSRect(x: 0, y: 0, width: 12 * 96, height: 706))
+        initial.move(to: NSPoint(x: 12 * 96, y: 306))
+        expect(initial.requestedOrigin == NSPoint(x: 12 * 96, y: 306),
+               "A Today reset after 19:00 is retained until the viewport has a size")
+        initial.frame = NSRect(x: 0, y: 0, width: 545, height: 202)
+        initial.needsLayout = true
+        initial.layoutSubtreeIfNeeded()
+        expect(abs(initial.contentView.bounds.minX - (12 * 96 - initial.contentView.bounds.width)) < 0.01,
+               "The first sized layout clamps a late Today reset to the visible daytime window")
+        expect(abs(initial.contentView.bounds.minY - 306) < 0.01,
+               "Clamping a late hour never moves Today to a different day row")
+        initial.documentView = nil
+
         // A tiny document has no secret extra days hiding beyond its edges.
         document.setFrameSize(NSSize(width: 80, height: 60))
         scrollView.move(to: NSPoint(x: 1000, y: 1000))
