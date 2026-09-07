@@ -415,13 +415,13 @@ private struct CalendarTimelineTrack: View {
                         VStack(alignment: .leading, spacing: laneHeight > 40 ? 3 : 1) {
                             Text(event.title)
                                 .font(.system(size: 11, weight: .medium))
-                                .lineLimit(laneHeight >= 52 ? 2 : 1)
+                                .lineLimit(laneHeight >= 52 ? 3 : 1)
                                 .truncationMode(.tail)
                             if laneHeight > 30, let location = event.location, !location.isEmpty {
                                 Text(location.replacingOccurrences(of: "\n", with: ", "))
                                     .font(.system(size: 9))
                                     .foregroundStyle(color.opacity(0.85))
-                                    .lineLimit(laneHeight >= 52 ? 2 : 1)
+                                    .lineLimit(1)
                                     .truncationMode(.tail)
                             }
                         }
