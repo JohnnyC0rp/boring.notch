@@ -15,6 +15,7 @@ enum CalendarDayStackGeometryTests {
                 && CalendarDayStackGeometry.rowStride == 106 && CalendarDayStackGeometry.pointsPerHour == 96,
                 "The day stack must use the intended fixed row and horizontal hour dimensions")
         verifyWindow(days)
+        verifyHiddenTimeOffsets(in: days[3].interval)
 
         let documentHeight = CalendarDayStackGeometry.documentHeight(for: days)
         require(documentHeight == 730, "Seven rows must have only six intervening gaps")
@@ -58,7 +59,40 @@ enum CalendarDayStackGeometryTests {
                 verifyRepeatedRecentering(from: center, direction: direction, calendar: zone)
             }
         }
-        print("Calendar day-stack geometry: all checks passed (fixed rows, fractional offsets, DST, 2,400 recentered day steps).")
+        print("Calendar day-stack geometry: all checks passed (hidden-time markers, fixed rows, fractional offsets, DST, 2,400 recentered day steps).")
+    }
+
+    private static func verifyHiddenTimeOffsets(in day: DateInterval) {
+        let visible = DateInterval(start: date("2026-09-07T07:00:00Z"), end: date("2026-09-07T19:00:00Z"))
+        let early = date("2026-09-07T04:00:00Z")
+        let late = date("2026-09-07T22:58:00Z")
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: early, in: day, visibleRange: visible) == -6,
+                "04:00 must appear in the middle of the gap above the daytime row")
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: late, in: day, visibleRange: visible) == 100,
+                "22:58 must appear in the middle of the gap below the daytime row")
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: visible.start, in: day, visibleRange: visible) == nil,
+                "Exactly 07:00 belongs to the visible timeline and must not duplicate its marker in the gap")
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: visible.end, in: day, visibleRange: visible) == 100,
+                "Exactly 19:00 is outside the half-open visible range and needs the lower gap marker")
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: date("2026-09-07T12:00:00Z"), in: day, visibleRange: visible) == nil,
+                "Visible daytime hours must not produce a hidden-time marker")
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: day.start, in: day, visibleRange: visible) == -6,
+                "The inclusive midnight day boundary must remain eligible for the upper gap")
+        for outside in [day.start.addingTimeInterval(-1), day.end, day.end.addingTimeInterval(4 * 3600)] {
+            require(CalendarDayStackGeometry.hiddenTimeOffset(for: outside, in: day, visibleRange: visible) == nil,
+                    "Dates outside this half-open day must never produce its hidden-time marker")
+        }
+        let extendedLate = DateInterval(start: visible.start, end: date("2026-09-07T23:00:00Z"))
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: late, in: day, visibleRange: extendedLate) == nil,
+                "A late event extending the visible range must suppress the redundant 22:58 gap marker")
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: extendedLate.end, in: day, visibleRange: extendedLate) == 100,
+                "The lower gap marker must follow the expanded visible range's exclusive end")
+        let extendedEarly = DateInterval(start: date("2026-09-07T03:00:00Z"), end: visible.end)
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: early, in: day, visibleRange: extendedEarly) == nil,
+                "An early event extending the visible range must suppress the redundant 04:00 gap marker")
+        require(CalendarDayStackGeometry.hiddenTimeOffset(for: early, in: day, visibleRange: day) == nil
+                && CalendarDayStackGeometry.hiddenTimeOffset(for: late, in: day, visibleRange: day) == nil,
+                "A fully visible day has no hidden-time markers")
     }
 
     private static func verifyDayLength(_ value: String, hours: Double, calendar: Calendar) {

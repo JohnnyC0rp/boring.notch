@@ -55,4 +55,11 @@ enum CalendarDayStackGeometry {
     static func documentHeight(for days: [Day]) -> Double {
         max(0, Double(days.count) * rowStride - rowSpacing)
     }
+
+    static func hiddenTimeOffset(for date: Date, in day: DateInterval, visibleRange: DateInterval) -> Double? {
+        guard date >= day.start && date < day.end else { return nil }
+        if date < visibleRange.start { return -rowSpacing / 2 }
+        if date >= visibleRange.end { return rowHeight + rowSpacing / 2 }
+        return nil
+    }
 }
