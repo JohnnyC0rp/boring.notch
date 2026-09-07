@@ -171,6 +171,9 @@
 		27153036EF618360BA496FD2 /* CodexActivityPhase.swift in Sources */ = {isa = PBXBuildFile; fileRef = B37EE2A44D5ACD69CA70944D /* CodexActivityPhase.swift */; };
 		3AB1AA2033105198E2764213 /* CodexActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = D010775110075B50D186BA1A /* CodexActivityManager.swift */; };
 		D9BEC4ABADD648BAEDB016EC /* CodexAvatar in Resources */ = {isa = PBXBuildFile; fileRef = A935154B10CD2F49E16DEFB7 /* CodexAvatar */; };
+		095CE27E6B50D22BB6FEDC34 /* HomeCalendarGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = B700C017E0637B3F2E42CD21 /* HomeCalendarGeometry.swift */; };
+		7552EFEE3B943C3EC7A0ED2C /* HomeCalendarScrollView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DEEB37CADE498DB6314A92E /* HomeCalendarScrollView.swift */; };
+		45384509C8621D3524DE5C08 /* HomeCalendarTimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B3C0A9977E4559F095F702C /* HomeCalendarTimelineView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -365,6 +368,9 @@
 		B37EE2A44D5ACD69CA70944D /* CodexActivityPhase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexActivityPhase.swift; sourceTree = "<group>"; };
 		D010775110075B50D186BA1A /* CodexActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexActivityManager.swift; sourceTree = "<group>"; };
 		A935154B10CD2F49E16DEFB7 /* CodexAvatar */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CodexAvatar; path = Assets/CodexAvatar; sourceTree = "<group>"; };
+		B700C017E0637B3F2E42CD21 /* HomeCalendarGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarGeometry.swift; sourceTree = "<group>"; };
+		3DEEB37CADE498DB6314A92E /* HomeCalendarScrollView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarScrollView.swift; sourceTree = "<group>"; };
+		4B3C0A9977E4559F095F702C /* HomeCalendarTimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarTimelineView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -658,6 +664,9 @@
 		14C08BB72C8DE49E000F8AA0 /* Calendar */ = {
 			isa = PBXGroup;
 			children = (
+				4B3C0A9977E4559F095F702C /* HomeCalendarTimelineView.swift */,
+				3DEEB37CADE498DB6314A92E /* HomeCalendarScrollView.swift */,
+				B700C017E0637B3F2E42CD21 /* HomeCalendarGeometry.swift */,
 				BC577231EE825A9835867BEF /* HomeCalendarView.swift */,
 				27B31AD0D6CBD446E7E65EC5 /* CalendarTimelineGeometry.swift */,
 				12951C760CF622F7D22599A1 /* CalendarTimelineView.swift */,
@@ -1038,6 +1047,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				095CE27E6B50D22BB6FEDC34 /* HomeCalendarGeometry.swift in Sources */,
+				7552EFEE3B943C3EC7A0ED2C /* HomeCalendarScrollView.swift in Sources */,
+				45384509C8621D3524DE5C08 /* HomeCalendarTimelineView.swift in Sources */,
 				3AB1AA2033105198E2764213 /* CodexActivityManager.swift in Sources */,
 				27153036EF618360BA496FD2 /* CodexActivityPhase.swift in Sources */,
 				79EC46EBBEFA944B9F2A4B3B /* CodexAvatarStyle.swift in Sources */,

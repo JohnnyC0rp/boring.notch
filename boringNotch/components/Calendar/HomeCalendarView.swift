@@ -9,7 +9,7 @@ struct HomeCalendarView: View {
             if showMonth {
                 CalendarMonthView(showTimeline: { showMonth = false }, selectDate: { _ in showMonth = false })
             } else {
-                CalendarTimelineView(compact: true, showMonth: { showMonth = true })
+                HomeCalendarTimelineView(showMonth: { showMonth = true })
             }
         }
         .frame(height: 130, alignment: .top)

@@ -67,7 +67,16 @@ enum CalendarTimelineGeometryTests {
                 "Compact hit targets still require collision-free lanes")
         require(CalendarTimelineGeometry.position(of: date("2026-11-01T01:30:00-05:00"), in: autumn, pointsPerHour: 54) == 2.5 * 54,
                 "Compact current-time position must use elapsed DST time and compact scale")
-        print("Calendar timeline geometry: 24 checks passed (full/compact scales, DST, midnight, overlaps, short targets, progress).")
+        let laneCounts = CalendarTimelineGeometry.clusterLaneCounts(for: result)
+        require(laneCounts["long"] == 2 && laneCounts["overlap"] == 2,
+                "Intersecting events must share a two-lane cluster")
+        require(laneCounts["adjacent"] == 1 && laneCounts["instant"] == 1,
+                "Later independent events must regain the full row height")
+        require(laneCounts["short"] == 2 && laneCounts["short-neighbor"] == 2,
+                "Expanded short-event targets must participate in overlap clusters")
+        require(CalendarTimelineGeometry.clusterLaneCounts(for: []).isEmpty,
+                "An empty day has no overlap clusters")
+        print("Calendar timeline geometry: 28 checks passed (full/compact scales, DST, midnight, overlap clusters, short targets, progress).")
     }
 
     private static func date(_ value: String) -> Date {

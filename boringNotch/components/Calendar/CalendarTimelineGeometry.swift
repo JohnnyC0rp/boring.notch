@@ -68,4 +68,26 @@ enum CalendarTimelineGeometry {
                                  hitX: hitX, hitWidth: hitWidth, lane: lane)
             }
     }
+
+    /// Independent overlap clusters can each use the full available row height.
+    static func clusterLaneCounts(for placements: [Placement]) -> [String: Int] {
+        var counts: [String: Int] = [:]
+        var cluster: [Placement] = []
+        var clusterEnd = -Double.infinity
+        func finishCluster() {
+            let count = (cluster.map(\.lane).max() ?? 0) + 1
+            for placement in cluster { counts[placement.id] = count }
+        }
+        for placement in placements.sorted(by: { $0.hitX < $1.hitX }) {
+            if placement.hitX >= clusterEnd {
+                finishCluster()
+                cluster = []
+                clusterEnd = -Double.infinity
+            }
+            cluster.append(placement)
+            clusterEnd = max(clusterEnd, placement.hitX + placement.hitWidth)
+        }
+        finishCluster()
+        return counts
+    }
 }
