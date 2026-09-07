@@ -1,3 +1,17 @@
+## Fork additions
+
+This fork extends [TheBoredTeam/boring.notch](https://github.com/TheBoredTeam/boring.notch) with:
+
+- **Home calendar:** a horizontal event timeline beside the music player, one-month grid, adaptive daytime hours, clear day gaps, and a highlighted Today shortcut.
+- **Calendar pane:** vertically stacked day timelines with independent horizontal time scrolling and inline event details.
+- **Clipboard:** bounded in-memory square cards, search, re-copy, and full-panel image previews.
+- **Codex activity:** an optional read-only local activity bridge and original animated glyphs, with the smiling face still available.
+- **Audio reaction:** improved helper-process capture recovery and steady real-time waveform behavior while waiting for audio.
+
+The combined implementation is on [`johnny/feat/notch-modernization`](https://github.com/JohnnyC0rp/boring.notch/tree/johnny/feat/notch-modernization); focused feature branches are proposed separately against upstream `dev`. Branches under `johnny/feat/history/` preserve the original development commits after removing private fixture identifiers and recovered artwork without a redistribution license. Those historical branches are archival; use the combined branch for the complete public implementation.
+
+---
+
 <h1 align="center">
   <br>
   <a href="http://theboring.name"><img src="https://framerusercontent.com/images/RFK4vs0kn8pRMuOO58JeyoemXA.png?scale-down-to=256" alt="Boring Notch" width="150"></a>
