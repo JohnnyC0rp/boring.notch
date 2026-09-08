@@ -1,6 +1,6 @@
 # Local Codex activity
 
-The optional Codex activity avatar follows the validated count of unfinished tasks in Codex Desktop, including tasks waiting for input or approval. It automatically selects an avatar by task count. Completed, unavailable, stale, invalid and error states return to the existing Smile. An amber dot marks input or approval requests; a red dot marks an error. macOS Reduce Motion keeps the task glyphs still.
+The optional Codex activity avatar follows the validated count of unfinished top-level tasks in Codex Desktop, including tasks waiting for input or approval. Subagents, hidden side conversations, temporary conversations, archived tasks and internal pull-request-fix automations are excluded. It automatically selects an avatar by task count. Completed, unavailable, stale, invalid and error states return to the existing Smile. An amber dot marks input or approval requests; a red dot marks an error. macOS Reduce Motion keeps the task glyphs still.
 
 | Tasks in progress | Automatic avatar | Rotation speed |
 | --- | --- | --- |
@@ -48,7 +48,9 @@ rm "$HOME/Library/LaunchAgents/theboringteam.boringnotch.codex-activity-login.pl
 
 ## Data flow and compatibility
 
-The bridge uses Codex Desktop's private local IPC protocol, not a supported public API. It identifies the app-server process owned by Desktop and discovers candidate task IDs from local session filenames and modification times. It does not open session transcript files. Incoming IPC frames are validated and projected in bounded chunks; only runtime status, revision, owner and freshness metadata are retained. Prompts, titles, responses and tool output are discarded and never logged or returned through HTTP.
+The bridge uses Codex Desktop's private local IPC protocol, not a supported public API. It identifies the app-server process owned by Desktop and discovers candidate task IDs from local session filenames and modification times. It does not open session transcript files. Incoming IPC frames are validated and projected in bounded chunks; only runtime status, task classification, revision, owner and freshness metadata are retained. Prompts, titles, responses and tool output are discarded and never logged or returned through HTTP.
+
+Task classification uses Desktop's explicit `source`, `threadSource`, `parentThreadId`, `ephemeral` and `sideConversation` metadata from the same status stream. It does not infer task type from titles or read a database. Ordinary forked tasks remain eligible; a fork origin is not a subagent parent. Unknown classification metadata is excluded until a valid snapshot arrives. Classification changes require a fresh snapshot, and archive/unarchive events remove or restore eligibility. These rules distinguish top-level tasks from their workers on the supported Desktop protocol; they do not reproduce every UI-specific sidebar filter across future versions.
 
 `http://127.0.0.1:48731/activity` exposes only the service name, schema version, aggregate phase, active task count and a timestamp. The endpoint binds to loopback, rejects browser-origin requests and accepts only the expected Host header. The native client does not follow redirects. No credentials are required or stored.
 
@@ -60,7 +62,7 @@ The frame reader consumes at most 64 KiB per socket read and validates UTF-8 and
 
 The bridge caches the verified Desktop/server process identity and session file paths. A two-second maintenance cycle checks process lifecycle notifications and cached file modification times, including files in older session directories. On macOS, directory notifications trigger structural rescans; a periodic reconciliation also refreshes the cache. When notification coverage is unavailable, discovery falls back to polling. Session file contents are never read.
 
-Verified subscriptions remain attached through idle, error and not-loaded states so resumed activity arrives through runtime patches even when no rollout file is written. Quiet active subscriptions, including tasks waiting for input or approval, request a fresh snapshot after 30 seconds; active observations expire after 45 seconds without confirmation. Idle subscriptions do not request periodic snapshots. File changes, owner announcements and reconnects still discover or revalidate tasks. An unanswered probe releases its subscription after eight seconds and retries after a 30-second backoff, so unknown tasks do not remain permanent followers.
+Verified top-level subscriptions remain attached through idle, error and not-loaded states so resumed activity arrives through runtime patches even when no rollout file is written. Confirmed hidden tasks release their subscriptions instead of refreshing their activity. Quiet active subscriptions, including tasks waiting for input or approval, request a fresh snapshot after 30 seconds; active observations expire after 45 seconds without confirmation. Idle subscriptions do not request periodic snapshots. File changes, owner announcements and reconnects still discover or revalidate tasks. An unanswered probe releases its subscription after eight seconds and retries after a 30-second backoff, so unknown tasks do not remain permanent followers.
 
 Keeping verified followers can prevent Codex Desktop from releasing inactive conversation history. This preserves timely activity updates but can increase memory retained by Desktop itself; bounded bridge parsing does not bound Desktop's memory. Stopping the bridge disconnects its followers and restores Desktop's normal cleanup eligibility.
 

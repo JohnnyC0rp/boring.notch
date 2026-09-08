@@ -20,7 +20,7 @@ import threading
 import time
 import uuid
 
-from codex_activity_json import ActivityJSONReader
+from codex_activity_json import ActivityJSONReader, VISIBILITY_FIELDS
 from codex_activity_discovery import DesktopServerDiscovery, ThreadDiscovery, THREAD_ID
 
 
@@ -44,16 +44,34 @@ def clean_status(value):
     return {"type": status_type, "activeFlags": list(flags)}
 
 
+def visible_task(state):
+    """Classify Desktop task metadata; None means it cannot yet be verified."""
+    if not isinstance(state, dict):
+        return None
+    if (state.get("parentThreadId") is not None
+            or state.get("threadSource") in ("subagent", "guardian_review", "pull_request_fix_automation")
+            or state.get("ephemeral") is True or state.get("sideConversation") is True):
+        return False
+    # Count the task, not its backstage crew. Unverified sources stay uncounted.
+    if (state.get("source") not in ("vscode", "cli", "exec")
+            or not isinstance(state.get("threadSource"), (str, type(None)))
+            or any(state.get(key, False) is not False for key in ("ephemeral", "sideConversation"))):
+        return None
+    return True
+
+
 class ActivityProjection:
     """Retains metadata only; every unknown state freezes the avatar."""
 
     def __init__(self):
         self.connected = False
         self.threads = {}
+        self.archived = set()
 
     def disconnect(self):
         self.connected = False
         self.threads.clear()
+        self.archived.clear()
 
     def consume(self, message, now):
         """Return a thread id when a revision gap needs a fresh snapshot."""
@@ -71,10 +89,20 @@ class ActivityProjection:
         if method == "ipc-connection-reset":
             self.disconnect()
             return None
+        if method in ("thread-archived", "thread-unarchived") and params.get("hostId") == "local":
+            thread_id = params.get("conversationId")
+            if isinstance(thread_id, str):
+                self.threads.pop(thread_id, None)
+                if method == "thread-archived":
+                    self.archived.add(thread_id)
+                else:
+                    self.archived.discard(thread_id)
+                    return thread_id
+            return None
         if method != "thread-stream-state-changed" or params.get("hostId") != "local":
             return None
         thread_id = params.get("conversationId")
-        if not isinstance(thread_id, str):
+        if not isinstance(thread_id, str) or thread_id in self.archived:
             return None
         if message.get("version") != STREAM_VERSION:
             self.threads.pop(thread_id, None)
@@ -91,11 +119,12 @@ class ActivityProjection:
         if change.get("type") == "snapshot":
             state = change.get("conversationState")
             status = clean_status(state.get("threadRuntimeStatus")) if isinstance(state, dict) else None
-            if status is None:
+            visible = visible_task(state)
+            if status is None or visible is None:
                 self.threads.pop(thread_id, None)
             else:
                 self.threads[thread_id] = {"status": status, "revision": revision,
-                                           "owner": owner, "seen": now}
+                                           "owner": owner, "seen": now, "visible": visible}
             return None
         if change.get("type") != "patches":
             return None
@@ -113,6 +142,10 @@ class ActivityProjection:
                 self.threads.pop(thread_id, None)
                 return thread_id
             path = patch.get("path", [])
+            if isinstance(path, list) and path and path[0] in VISIBILITY_FIELDS:
+                # Reclassify from a complete snapshot before counting again.
+                self.threads.pop(thread_id, None)
+                return thread_id
             if not isinstance(path, list) or not path or path[0] != "threadRuntimeStatus":
                 continue
             if len(path) == 1:
@@ -130,11 +163,12 @@ class ActivityProjection:
         return None
 
     def summary(self, now):
-        fresh = [state["status"] for state in self.threads.values()
+        visible = [state for state in self.threads.values() if state["visible"]]
+        fresh = [state["status"] for state in visible
                  if state["status"]["type"] != "active" or now - state["seen"] <= 45]
         active = [state for state in fresh if state["type"] == "active"]
         working = [state for state in active if not state["activeFlags"]]
-        if not self.connected or (self.threads and not fresh) or not self.threads:
+        if not self.connected or (visible and not fresh) or not self.threads:
             phase = "offline"
         elif working:
             phase = "active"
@@ -177,6 +211,8 @@ class DesktopObserver:
     def follow(self, thread_id, now):
         with self.lock:
             previous = self.projection.threads.get(thread_id)
+            if thread_id in self.projection.archived or (previous and not previous["visible"]):
+                return
             if previous is not None and previous["status"]["type"] != "active":
                 self.projection.threads.pop(thread_id)
         self.send({"type": "broadcast", "sourceClientId": self.client_id,
@@ -199,6 +235,9 @@ class DesktopObserver:
         for thread_id in sorted(known, key=lambda key: candidates.get(key, 0), reverse=True):
             modified = candidates.get(thread_id)
             state = states.get(thread_id)
+            if thread_id in self.projection.archived or (state and not state["visible"]):
+                self.unfollow(thread_id)
+                continue
             last_sent = self.subscribed.get(thread_id)
             if last_sent is not None:
                 if state and state["status"]["type"] == "active":
@@ -268,6 +307,10 @@ class DesktopObserver:
                     self.follow(thread_id, now)
             with self.lock:
                 retry = self.projection.consume(message, now)
+            if message.get("method") == "thread-archived":
+                params = message.get("params") or {}
+                if params.get("hostId") == "local":
+                    self.unfollow(params.get("conversationId"))
             if retry:
                 self.follow(retry, now)
 

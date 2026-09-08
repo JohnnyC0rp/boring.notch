@@ -17,9 +17,11 @@ MAX_SCALAR_BYTES = 256
 # decoder's own depth guard and can never exceed CHUNK_BYTES of source text.
 MAX_DEPTH = 128
 SCALAR = object()
+VISIBILITY_SCALAR = object()
 PATCH_VALUE = object()
 PATCHES = object()
 STATUS = {"type": SCALAR, "activeFlags": (SCALAR, 16)}
+VISIBILITY_FIELDS = ("source", "threadSource", "parentThreadId", "ephemeral", "sideConversation")
 PATCH_PATH = (SCALAR, 3)
 PATCH = {"op": SCALAR, "path": PATCH_PATH, "value": PATCH_VALUE}
 MESSAGE = {
@@ -31,7 +33,8 @@ MESSAGE = {
         "clientId": SCALAR, "status": SCALAR,
         "change": {
             "type": SCALAR, "revision": SCALAR, "baseRevision": SCALAR,
-            "conversationState": {"threadRuntimeStatus": STATUS},
+            "conversationState": {"threadRuntimeStatus": STATUS,
+                                  **{key: VISIBILITY_SCALAR for key in VISIBILITY_FIELDS}},
             "patches": PATCHES,
         },
     },
@@ -147,6 +150,16 @@ class ActivityJSONReader:
             raise ValueError("IPC JSON nesting exceeds limit")
         self._space()
         first = self._peek()
+        if schema is VISIBILITY_SCALAR:
+            if first in (123, 91):
+                self._value(None, depth)
+                # Preserve invalid shape without retaining its contents or
+                # confusing a malformed parent/source with an absent value.
+                return []
+            if first == 34:
+                value = self._string(True)
+                return [] if value is None else value
+            schema = SCALAR
         if schema is None and self._skip_native():
             return None
         if schema is PATCH_VALUE:
@@ -235,7 +248,8 @@ class ActivityJSONReader:
                 if not isinstance(value, dict):
                     raise ValueError("Expected IPC status patch object")
                 path = value.get("path") if isinstance(value, dict) else None
-                retain = isinstance(path, list) and bool(path) and path[0] == "threadRuntimeStatus"
+                retain = (isinstance(path, list) and bool(path)
+                          and path[0] in ("threadRuntimeStatus", *VISIBILITY_FIELDS))
             if retain:
                 if len(result) >= limit:
                     if schema is PATCHES:
