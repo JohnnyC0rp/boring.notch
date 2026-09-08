@@ -190,8 +190,16 @@ class ProjectionTests(unittest.TestCase):
         self.assertIsNone(bridge.clean_status({"type": "active", "activeFlags": [{}]}))
 
     def test_thread_id_discovery_uses_filename_only(self):
-        self.assertIsNotNone(bridge.THREAD_ID.search("rollout-2026-09-07T17-00-00-00000000-0000-4000-8000-000000000001.jsonl"))
-        self.assertIsNone(bridge.THREAD_ID.search("auth.json"))
+        thread = "00000000-0000-4000-8000-000000000001"
+        segment = "00000000-0000-4000-8000-000000000002"
+        prefix = f"rollout-2026-09-07T17-00-00-{thread}"
+        for name in [f"{prefix}.jsonl", f"{prefix}_{segment}.jsonl"]:
+            with self.subTest(name=name):
+                self.assertEqual(bridge.THREAD_ID.search(name).group(1), thread)
+        for name in ["auth.json", f"{prefix}_invalid.jsonl", f"{prefix}_{segment}.jsonl.bak",
+                     f"rollout-2026-09-07T17-00-00-invalid_{segment}.jsonl"]:
+            with self.subTest(name=name):
+                self.assertIsNone(bridge.THREAD_ID.search(name))
 
 
 if __name__ == "__main__":

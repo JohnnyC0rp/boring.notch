@@ -169,11 +169,12 @@ class ThreadDiscoveryTests(unittest.TestCase):
         self.cache = discovery.ThreadDiscovery(self.root, lambda: self.now, factory)
         self.addCleanup(self.cache.close)
 
-    def rollout(self, number=1, modified=100, directory="2026/09/07"):
+    def rollout(self, number=1, modified=100, directory="2026/09/07", segment=None):
         thread = f"00000000-0000-4000-8000-{number:012d}"
         folder = self.root / directory
         folder.mkdir(parents=True, exist_ok=True)
-        path = folder / f"rollout-2026-09-07T12-00-00-{thread}.jsonl"
+        suffix = f"_00000000-0000-4000-8000-{segment:012d}" if segment is not None else ""
+        path = folder / f"rollout-2026-09-07T12-00-00-{thread}{suffix}.jsonl"
         path.touch()
         os.utime(path, (modified, modified))
         return path, thread
@@ -182,6 +183,21 @@ class ThreadDiscoveryTests(unittest.TestCase):
         _, thread = self.rollout()
         with patch("builtins.open", side_effect=AssertionError("Content read")):
             self.assertEqual(self.cache.candidates(90), {thread: 100})
+
+    def test_recent_segment_discovers_task_whose_original_predates_server(self):
+        _, thread = self.rollout(modified=10)
+        self.rollout(modified=100, segment=2)
+        with patch("builtins.open", side_effect=AssertionError("Content read")):
+            self.assertEqual(self.cache.candidates(90), {thread: 100})
+
+    def test_segments_deduplicate_under_task_id_using_latest_modification(self):
+        _, thread = self.rollout(modified=100)
+        latest, _ = self.rollout(modified=120, segment=2)
+        self.rollout(modified=110, segment=3)
+        self.assertEqual(self.cache.candidates(90), {thread: 120})
+        os.utime(latest, (130, 130))
+        with patch.object(discovery.os, "scandir", side_effect=AssertionError("Unexpected traversal")):
+            self.assertEqual(self.cache.candidates(90), {thread: 130})
 
     def test_old_rollout_append_is_detected_without_tree_rescan(self):
         path, thread = self.rollout(modified=10)
