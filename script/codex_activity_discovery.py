@@ -16,7 +16,11 @@ import subprocess
 import time
 
 
-THREAD_ID = re.compile(r"([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})\.jsonl$")
+UUID_PATTERN = r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}"
+# Segmented rollouts append another UUID; the task keeps the first one.
+THREAD_ID = re.compile(
+    rf"^rollout-\d{{4}}-\d{{2}}-\d{{2}}T\d{{2}}-\d{{2}}-\d{{2}}-({UUID_PATTERN})"
+    rf"(?:_{UUID_PATTERN})?\.jsonl$")
 
 
 class _KqueueWatch:
