@@ -47,7 +47,8 @@ class StreamingJSONTests(unittest.TestCase):
             state["after"] = "another private value" * 2000
             projected = decode(message, chunk)
             retained = projected["params"]["change"]["conversationState"]
-            self.assertEqual(retained, {"threadRuntimeStatus": {"type": "active", "activeFlags": []}})
+            self.assertEqual(retained, {"threadRuntimeStatus": {"type": "active", "activeFlags": []},
+                                        "source": "vscode", "threadSource": "user"})
             self.assertLess(len(json.dumps(projected)), 1024)
 
     def test_all_key_orders_and_unicode_escapes(self):
@@ -87,6 +88,42 @@ class StreamingJSONTests(unittest.TestCase):
         projection.consume(snapshot(), 100)
         self.assertEqual(projection.consume(decode(message), 101), "one")
         self.assertEqual(projection.summary(101)["activeCount"], 0)
+
+    def test_visibility_patches_invalidate_count_until_complete_snapshot(self):
+        for chunk in [1, 7, CHUNK_BYTES]:
+            for path, value in [(["source"], "cli"), (["source", "subagent"], {}),
+                                (["threadSource"], "subagent"), (["parentThreadId"], "parent"),
+                                (["ephemeral"], True), (["sideConversation"], True)]:
+                for operation in ["replace", "remove"]:
+                    with self.subTest(chunk=chunk, path=path, operation=operation):
+                        projection = ActivityProjection()
+                        projection.connected = True
+                        projection.consume(decode(snapshot(), chunk), 100)
+                        message = patch(value, path=path)
+                        item = message["params"]["change"]["patches"][0]
+                        item["op"] = operation
+                        if operation == "remove":
+                            del item["value"]
+                        self.assertEqual(projection.consume(decode(message, chunk), 101), "one")
+                        self.assertEqual(projection.summary(101)["activeCount"], 0)
+                        projection.consume(decode(snapshot(metadata={"sideConversation": True}, revision=3), chunk), 102)
+                        self.assertEqual(projection.summary(102)["activeCount"], 0)
+                        projection.consume(decode(snapshot(revision=4), chunk), 103)
+                        self.assertEqual(projection.summary(103)["activeCount"], 1)
+
+    def test_malformed_visibility_metadata_is_not_normalized_into_visible_task(self):
+        for metadata in [{"source": {"subagent": {"thread_spawn": {"parent_thread_id": "parent"}}}},
+                         {"parentThreadId": {}}, {"parentThreadId": []},
+                         {"threadSource": {}}, {"threadSource": []},
+                         {"ephemeral": {}}, {"sideConversation": []},
+                         {"source": "x" * 1000}, {"parentThreadId": "x" * 1000},
+                         {"threadSource": "x" * 1000}]:
+            for chunk in [1, CHUNK_BYTES]:
+                with self.subTest(metadata=metadata, chunk=chunk):
+                    projection = ActivityProjection()
+                    projection.connected = True
+                    projection.consume(decode(snapshot(metadata=metadata), chunk), 100)
+                    self.assertEqual(projection.summary(100)["activeCount"], 0)
 
     def test_invalid_status_shapes_fail_closed_without_crashing(self):
         for value in [None, [], 3, "unexpected", {"type": []}, {"type": "active", "activeFlags": [{}]}]:

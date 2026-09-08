@@ -127,6 +127,61 @@ class SubscriptionTests(unittest.TestCase):
         self.observer.refresh_subscriptions({"old": 10, "recent": 99}, 100)
         self.assertEqual([message["params"]["conversationId"] for message in self.sent], ["recent", "old"])
 
+    def test_hidden_task_releases_subscription_and_ignores_follow_hints(self):
+        self.observer.sock, writer = socket.socketpair()
+        self.addCleanup(writer.close)
+        self.addCleanup(self.observer.reset)
+        self.observer.refresh_subscriptions({"one": 99}, 100)
+        hidden = snapshot(metadata={"threadSource": "subagent", "parentThreadId": "parent"})
+        data = json.dumps(hidden).encode()
+        writer.sendall(struct.pack("<I", len(data)) + data)
+        self.observer.receive(101)
+        self.observer.refresh_subscriptions({"one": 99}, 102)
+        self.assertNotIn("one", self.observer.subscribed)
+        self.assertFalse(self.sent[-1]["params"]["following"])
+        self.sent.clear()
+        hint = {"type": "broadcast", "method": "thread-stream-following-status-requested",
+                "params": {"hostId": "local", "conversationId": "one"}}
+        data = json.dumps(hint).encode()
+        writer.sendall(struct.pack("<I", len(data)) + data)
+        self.observer.receive(103)
+        self.observer.refresh_subscriptions({"one": 104}, 160)
+        self.assertEqual(self.sent, [])
+        self.assertNotIn("one", self.observer.subscribed)
+        self.assertEqual(self.observer.projection.summary(160)["activeCount"], 0)
+
+    def test_archived_task_stays_unfollowed_until_unarchive(self):
+        self.observer.sock, writer = socket.socketpair()
+        self.addCleanup(writer.close)
+        self.addCleanup(self.observer.reset)
+
+        def deliver(message, now):
+            data = json.dumps(message).encode()
+            writer.sendall(struct.pack("<I", len(data)) + data)
+            self.observer.receive(now)
+
+        self.observer.refresh_subscriptions({"one": 99}, 100)
+        deliver(snapshot(), 101)
+        event = {"type": "broadcast", "method": "thread-archived",
+                 "params": {"hostId": "local", "conversationId": "one"}}
+        deliver(event, 102)
+        self.assertNotIn("one", self.observer.subscribed)
+        self.assertFalse(self.sent[-1]["params"]["following"])
+        self.sent.clear()
+        deliver(snapshot(revision=2), 103)
+        deliver({"type": "broadcast", "method": "thread-stream-following-status-requested",
+                 "params": {"hostId": "local", "conversationId": "one"}}, 104)
+        self.observer.refresh_subscriptions({"one": 104}, 160)
+        self.assertEqual(self.sent, [])
+        self.assertEqual(self.observer.projection.summary(160)["activeCount"], 0)
+        self.observer.next_probe["one"] = 300
+        event["method"] = "thread-unarchived"
+        deliver(event, 161)
+        self.assertEqual(len(self.sent), 1)
+        self.assertTrue(self.sent[0]["params"]["following"])
+        deliver(snapshot(revision=3), 163)
+        self.assertEqual(self.observer.projection.summary(163)["activeCount"], 1)
+
     def test_reset_clears_activity_and_discovery_fingerprints(self):
         self.observer.refresh_subscriptions({"one": 99}, 100)
         self.observer.projection.consume(snapshot(), 101)
