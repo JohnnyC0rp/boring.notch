@@ -18,11 +18,6 @@ let temporaryDirectory: URL = FileManager.default.urls(for: .cachesDirectory, in
     ?? URL(fileURLWithPath: NSTemporaryDirectory())
 let spacing: CGFloat = 16
 
-enum CalendarSelectionState: Codable, Defaults.Serializable {
-    case all
-    case selected(Set<String>)
-}
-
 enum HideNotchOption: String, Defaults.Serializable {
     case always
     case nowPlayingOnly
