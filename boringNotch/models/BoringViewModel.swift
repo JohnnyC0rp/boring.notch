@@ -187,13 +187,15 @@ final class BoringViewModel: NSObject, ObservableObject {
     func open(forHover: Bool = false) -> Bool {
         guard !coordinator.firstLaunch, notchState != .open else { return false }
 
-        if forHover, notchState == .closed, coordinator.currentView == .home,
+        if forHover, notchState == .closed,
+           coordinator.currentView == .home || coordinator.currentView == .clipboard,
            !dropInteraction.anyDropZoneTargeting, !coordinator.expandingView.show,
            !coordinator.shouldShowSneakPeek(on: screenUUID),
-           !SharingStateManager.shared.preventNotchClose,
-           ClipboardHistoryManager.shared.hasRecentCopies() {
-            coordinator.currentView = .clipboard
-            restoreHomeAfterClipboardHover = true
+           !SharingStateManager.shared.preventNotchClose {
+            // Clipboard is a recent-copy shortcut, not a permanent hover default.
+            let showClipboard = ClipboardHistoryManager.shared.hasRecentCopies()
+            coordinator.currentView = showClipboard ? .clipboard : .home
+            restoreHomeAfterClipboardHover = showClipboard
         }
 
         self.notchSize = notchOpenSize(for: coordinator.currentView)
