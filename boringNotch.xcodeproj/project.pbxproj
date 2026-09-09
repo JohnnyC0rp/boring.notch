@@ -194,6 +194,8 @@
 		7E50CB481BE2473D94DB6677 /* CodexAvatarStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4960F4D9CCAC4DFDADAFBBED /* CodexAvatarStyle.swift */; };
 		3D5A7835217B477E9A6B86BC /* CodexActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F612887E3434E83A1783A35 /* CodexActivityManager.swift */; };
 		6C4FABF3913243E3B9B72FAD /* CodexAvatarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD8251A3D6BB456986A08C42 /* CodexAvatarView.swift */; };
+		F7EF2E8CDA5340C9B064B689 /* ClipboardDragPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = E437E8F74E5C4BB181B67443 /* ClipboardDragPayload.swift */; };
+		8C6699F87F6047069EA679A8 /* ClipboardSelectionInteraction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 872320DB7B8949A1A2CEF6D0 /* ClipboardSelectionInteraction.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -419,6 +421,8 @@
 		4960F4D9CCAC4DFDADAFBBED /* CodexAvatarStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexAvatarStyle.swift; sourceTree = "<group>"; };
 		7F612887E3434E83A1783A35 /* CodexActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexActivityManager.swift; sourceTree = "<group>"; };
 		DD8251A3D6BB456986A08C42 /* CodexAvatarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexAvatarView.swift; sourceTree = "<group>"; };
+		E437E8F74E5C4BB181B67443 /* ClipboardDragPayload.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardDragPayload.swift; sourceTree = "<group>"; };
+		872320DB7B8949A1A2CEF6D0 /* ClipboardSelectionInteraction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardSelectionInteraction.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -981,6 +985,8 @@
 			isa = PBXGroup;
 			children = (
 				06501035487CC2F9C7E085B1 /* ClipboardHistoryView.swift */,
+				872320DB7B8949A1A2CEF6D0 /* ClipboardSelectionInteraction.swift */,
+				E437E8F74E5C4BB181B67443 /* ClipboardDragPayload.swift */,
 			);
 			path = Clipboard;
 			sourceTree = "<group>";
@@ -1292,6 +1298,8 @@
 				7E8F2E08A70E45DB414082BF /* ClipboardHistoryItem.swift in Sources */,
 				661E393E179FB4E62CEB5A9C /* ClipboardHistoryManager.swift in Sources */,
 				76CFAEC83E8EDA3DB5C9031E /* ClipboardHistoryView.swift in Sources */,
+				8C6699F87F6047069EA679A8 /* ClipboardSelectionInteraction.swift in Sources */,
+				F7EF2E8CDA5340C9B064B689 /* ClipboardDragPayload.swift in Sources */,
 				14CEF4182C5CAED300855D72 /* ContentView.swift in Sources */,
 				9A987A0D2C73CA66005CA465 /* ShelfView.swift in Sources */,
 				1132E5142E777B920068732D /* YouTubeMusicNetworking.swift in Sources */,

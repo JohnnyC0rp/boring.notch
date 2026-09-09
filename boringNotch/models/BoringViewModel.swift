@@ -18,6 +18,7 @@ final class BoringViewModel: NSObject, ObservableObject {
     let dropInteraction = DropInteractionState()
 
     @Published private(set) var notchState: NotchState = .closed
+    private var restoreHomeAfterClipboardHover = false
     var cancellables: Set<AnyCancellable> = []
     
     @Published var hideOnClosed: Bool = true
@@ -183,8 +184,17 @@ final class BoringViewModel: NSObject, ObservableObject {
     }
 
     @discardableResult
-    func open() -> Bool {
+    func open(forHover: Bool = false) -> Bool {
         guard !coordinator.firstLaunch, notchState != .open else { return false }
+
+        if forHover, notchState == .closed, coordinator.currentView == .home,
+           !dropInteraction.anyDropZoneTargeting, !coordinator.expandingView.show,
+           !coordinator.shouldShowSneakPeek(on: screenUUID),
+           !SharingStateManager.shared.preventNotchClose,
+           ClipboardHistoryManager.shared.hasRecentCopies() {
+            coordinator.currentView = .clipboard
+            restoreHomeAfterClipboardHover = true
+        }
 
         self.notchSize = notchOpenSize(for: coordinator.currentView)
         self.notchState = .open
@@ -213,9 +223,11 @@ final class BoringViewModel: NSObject, ObservableObject {
         // Otherwise, if the user has not enabled openLastShelfByDefault, set the view to home
         if Defaults[.boringShelf] && !ShelfStateViewModel.shared.isEmpty && Defaults[.openShelfByDefault] {
             coordinator.currentView = .shelf
-        } else if !coordinator.openLastTabByDefault {
+        } else if !coordinator.openLastTabByDefault
+                    || (restoreHomeAfterClipboardHover && coordinator.currentView == .clipboard) {
             coordinator.currentView = .home
         }
+        restoreHomeAfterClipboardHover = false
     }
 
     func closeHello() {

@@ -94,7 +94,9 @@ struct ClipboardHistoryTests {
 
         checkBounds(board)
         checkImages(board)
+        checkWideImageThumbnail(board)
         checkRace(board)
+        checkRecentCopies(board)
         manager.startMonitoring()
         manager.startMonitoring()
         expect(manager.isMonitoring, "Starting capture is idempotent")
@@ -128,6 +130,11 @@ struct ClipboardHistoryTests {
         board.setData(png, forType: .png)
         manager.capturePasteboardChanges()
         expect(manager.items.count == 1, "Capture a valid bounded PNG image")
+        guard case .image(_, _, let thumbnail) = manager.items[0].content,
+              let tinyImage = thumbnail.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            fatalError("Expected a decodable image thumbnail")
+        }
+        expect(tinyImage.width == 2 && tinyImage.height == 2, "Do not upscale small image thumbnails")
         expect(manager.items[0].matches("image"), "Find images by type")
         expect(manager.copy(manager.items[0]), "Copy an image back")
         expect(board.data(forType: .png) == png, "Preserve original image bytes on paste")
@@ -137,6 +144,73 @@ struct ClipboardHistoryTests {
         board.setData(Data("Synthetic invalid image".utf8), forType: .png)
         manager.capturePasteboardChanges()
         expect(manager.items.count == 1, "Reject invalid image data")
+    }
+
+    private static func checkWideImageThumbnail(_ board: NSPasteboard) {
+        let manager = ClipboardHistoryManager(pasteboard: board)
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 800, pixelsHigh: 200,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+            isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+        ) else { fatalError("Could not create synthetic wide image") }
+        for x in 0..<800 {
+            for y in 0..<200 {
+                // Thin strokes model the equation images that lose detail in small thumbnails.
+                bitmap.setColor(y % 40 < 4 || x % 100 < 4 ? .white : .black, atX: x, y: y)
+            }
+        }
+        guard let png = bitmap.representation(using: .png, properties: [:]) else {
+            fatalError("Could not encode synthetic wide image")
+        }
+        board.clearContents()
+        board.setData(png, forType: .png)
+        manager.capturePasteboardChanges()
+        expect(manager.items.count == 1, "Capture a wide image with thin strokes")
+        guard case .image(let original, let type, let thumbnail) = manager.items[0].content,
+              let image = thumbnail.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            fatalError("Expected a decodable wide image thumbnail")
+        }
+        expect(image.width == 320 && image.height == 80, "Retain Retina thumbnail detail and the original aspect ratio")
+        expect(original == png && type == .png, "Thumbnail generation preserves original encoded image data")
+        expect(manager.copy(manager.items[0]), "Copy the original wide image successfully")
+        expect(board.data(forType: .png) == png, "Copy full-resolution original bytes instead of the thumbnail")
+    }
+
+    private static func checkRecentCopies(_ board: NSPasteboard) {
+        let manager = ClipboardHistoryManager(pasteboard: board)
+        manager.startMonitoring()
+        defer { manager.stopMonitoring() }
+        expect(!manager.hasRecentCopies(), "Empty history does not open the clipboard on hover")
+        write("Synthetic recent first", to: board)
+        manager.capturePasteboardChanges()
+        expect(!manager.hasRecentCopies(), "One recent item does not open the clipboard on hover")
+        write("Synthetic recent first", to: board)
+        manager.capturePasteboardChanges()
+        expect(!manager.hasRecentCopies(), "Repeated copies of one item do not count as two items")
+        write("Synthetic concealed recent item", to: board, marker: "org.nspasteboard.ConcealedType")
+        manager.capturePasteboardChanges()
+        expect(!manager.hasRecentCopies(), "Excluded copies do not influence hover routing")
+        write("Synthetic recent second", to: board)
+        manager.capturePasteboardChanges()
+        expect(manager.hasRecentCopies(), "Two recent detected items open the clipboard on hover")
+        let oldest = manager.items[1].capturedAt
+        expect(manager.hasRecentCopies(at: oldest.addingTimeInterval(30)),
+               "Include two items within the thirty-second window")
+        expect(!manager.hasRecentCopies(at: oldest.addingTimeInterval(30.001)),
+               "Expire the rule when only one item is recent")
+        expect(!manager.hasRecentCopies(at: oldest.addingTimeInterval(-1)),
+               "Ignore future timestamps after a clock change")
+        manager.setPaused(true)
+        expect(!manager.hasRecentCopies(), "Paused capture does not override the default hover pane")
+        manager.setPaused(false)
+        expect(manager.hasRecentCopies(), "Resumed capture uses the existing recent detection timestamps")
+        manager.stopMonitoring()
+        expect(!manager.hasRecentCopies(), "Stopped capture does not override the default hover pane")
+        manager.startMonitoring()
+        manager.delete(manager.items[0])
+        expect(!manager.hasRecentCopies(), "Deleted items do not count toward the hover rule")
+        manager.clearHistory()
+        expect(!manager.hasRecentCopies(), "Cleared history does not keep an automatic clipboard override")
     }
 
     private static func checkRace(_ board: NSPasteboard) {

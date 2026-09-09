@@ -808,10 +808,10 @@ struct ContentView: View {
     }
 
     @discardableResult
-    private func doOpen() -> Bool {
+    private func doOpen(forHover: Bool = false) -> Bool {
         var didOpen = false
         withAnimation(animationSpring) {
-            didOpen = vm.open()
+            didOpen = vm.open(forHover: forHover)
         }
         return didOpen
     }
@@ -855,7 +855,7 @@ struct ContentView: View {
                           !self.shouldDisplayNowPlayingFallbackNotice,
                           !self.coordinator.shouldShowSneakPeek(on: self.vm.screenUUID) else { return }
                     
-                    self.doOpen()
+                    self.doOpen(forHover: true)
                 }
             }
         } else {

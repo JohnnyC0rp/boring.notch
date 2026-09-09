@@ -81,6 +81,12 @@ final class ClipboardHistoryManager: ObservableObject {
         isPaused = paused
     }
 
+    /// Evaluated only when hover opens the notch; detection timestamps need no extra polling.
+    func hasRecentCopies(at now: Date = Date()) -> Bool {
+        guard isMonitoring, !isPaused, items.count >= 2 else { return false }
+        return items.prefix(2).allSatisfy { (0...30).contains(now.timeIntervalSince($0.capturedAt)) }
+    }
+
     func clearHistory() {
         items.removeAll()
         lastChangeCount = pasteboard.changeCount
@@ -154,7 +160,8 @@ final class ClipboardHistoryManager: ObservableObject {
                   width > 0, height > 0, Double(width) * Double(height) <= 40_000_000,
                   let thumbnail = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                     kCGImageSourceCreateThumbnailFromImageAlways: true,
-                    kCGImageSourceThumbnailMaxPixelSize: 160,
+                    // Keep Retina tiles sharp while bounding retained pixels and never enlarging tiny copies.
+                    kCGImageSourceThumbnailMaxPixelSize: min(320, max(width, height)),
                     kCGImageSourceCreateThumbnailWithTransform: true
                   ] as CFDictionary) else { continue }
             return .image(data, type: type, thumbnail: NSImage(cgImage: thumbnail, size: .zero))
