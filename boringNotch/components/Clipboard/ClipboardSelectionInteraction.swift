@@ -24,6 +24,7 @@ struct ClipboardSelectionInteraction: NSViewRepresentable {
     let selectionChanged: (Set<UUID>) -> Void
     let clicked: (ClipboardHistoryItem) -> Void
     let interactionChanged: (Bool) -> Void
+    let dragFailed: () -> Void
 
     func makeNSView(context: Context) -> ClipboardSelectionView {
         ClipboardSelectionView()
@@ -36,6 +37,7 @@ struct ClipboardSelectionInteraction: NSViewRepresentable {
         view.selectionChanged = selectionChanged
         view.clicked = clicked
         view.interactionChanged = interactionChanged
+        view.dragFailed = dragFailed
     }
 }
 
@@ -46,12 +48,13 @@ final class ClipboardSelectionView: NSView, NSDraggingSource {
     var selectionChanged: (Set<UUID>) -> Void = { _ in }
     var clicked: (ClipboardHistoryItem) -> Void = { _ in }
     var interactionChanged: (Bool) -> Void = { _ in }
+    var dragFailed: () -> Void = {}
 
     private var gesture: ClipboardSelectionGesture?
     private var mouseDownEvent: NSEvent?
     private var isInteracting = false
     private var isDragging = false
-    private var dragWriters: [any NSPasteboardWriting] = []
+    private var dragPayload: ClipboardDragPayload?
     private var escapeMonitor: Any?
     private var windowObservers: [NSObjectProtocol] = []
 
@@ -120,12 +123,19 @@ final class ClipboardSelectionView: NSView, NSDraggingSource {
     private func startDragging(ids: Set<UUID>) {
         let selected = items.filter { ids.contains($0.id) }
         guard !selected.isEmpty, let mouseDownEvent else { return }
+        let payload: ClipboardDragPayload
+        do {
+            payload = try ClipboardDragPayload(items: selected)
+        } catch {
+            finishInteraction()
+            dragFailed()
+            return
+        }
+        dragPayload = payload
         let point = convert(mouseDownEvent.locationInWindow, from: nil)
-        let draggingItems = selected.enumerated().map { index, item in
-            let writer = ClipboardDragPayload.pasteboardWriter(for: item)
-            dragWriters.append(writer)
+        let draggingItems = payload.writers.enumerated().map { index, writer in
             let draggingItem = NSDraggingItem(pasteboardWriter: writer)
-            let preview = dragImage(for: item)
+            let preview = dragImage(for: payload.previewItems[index])
             let offset = CGFloat(min(index, 3)) * 5
             draggingItem.setDraggingFrame(
                 NSRect(x: point.x + offset - 40, y: point.y + offset - 30, width: 80, height: 60),
@@ -171,7 +181,8 @@ final class ClipboardSelectionView: NSView, NSDraggingSource {
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
         isDragging = false
-        dragWriters.removeAll()
+        dragPayload?.finish(completed: !operation.isEmpty)
+        dragPayload = nil
         finishInteraction()
     }
 

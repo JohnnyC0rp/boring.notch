@@ -20,6 +20,7 @@ struct ClipboardHistoryView: View {
     @State private var copyFailed = false
     @State private var hostWindow: BoringNotchSkyLightWindow?
     @State private var hasKeyboardSession = false
+    @State private var dragFailed = false
     @FocusState private var searchIsFocused: Bool
     @FocusState private var gridIsFocused: Bool
 
@@ -242,11 +243,13 @@ struct ClipboardHistoryView: View {
                     interactionChanged: { active in
                         isPointerInteracting = active
                         if active {
+                            dragFailed = false
                             SharingStateManager.shared.beginInteraction()
                         } else {
                             SharingStateManager.shared.endInteraction()
                         }
-                    }
+                    },
+                    dragFailed: { dragFailed = true }
                 )
             }
             .scrollIndicators(.automatic)
@@ -285,12 +288,16 @@ struct ClipboardHistoryView: View {
             Text(manager.isPaused ? "Capture paused" : "Stored until quit")
             Spacer()
             Text(footerMessage)
-                .foregroundStyle(copyFailed ? .orange : .white.opacity(0.4))
+                .foregroundStyle(copyFailed || dragFailed ? .orange : .white.opacity(0.4))
         }
         .font(.system(size: 9))
         .foregroundStyle(.white.opacity(0.4))
         .accessibilityElement(children: .combine)
-        .help("History stays in memory. Copies marked sensitive and supported password-manager apps are skipped. Unmarked secrets can still appear; pause capture before copying them.")
+        .help("""
+        History stays in memory. Dragging images creates temporary files for receiving apps; \
+        mixed selections include text as an attachment. Copies marked sensitive and supported \
+        password-manager apps are skipped. Unmarked secrets can still appear; pause capture before copying them.
+        """)
     }
 
     private func beginKeyboardSession() {
@@ -313,6 +320,7 @@ struct ClipboardHistoryView: View {
     }
 
     private var footerMessage: String {
+        if dragFailed { return "Could not prepare files. Try again." }
         if copyFailed { return "Copy failed. Try again." }
         if selectedIDs.count > 1 { return "\(selectedIDs.count) selected · Drag out to drop" }
         if copiedID != nil { return "Copied · paste with ⌘V" }

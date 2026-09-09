@@ -7,86 +7,119 @@
 
 import AppKit
 
-enum ClipboardDragPayload {
-    static func pasteboardWriter(for item: ClipboardHistoryItem) -> any NSPasteboardWriting {
-        switch item.content {
-        case .text(let value, let isURL):
+/// Chat editors consume one text value or a list of real files, rather than multiple raw images.
+final class ClipboardDragPayload {
+    let writers: [any NSPasteboardWriting]
+    let previewItems: [ClipboardHistoryItem]
+    private let exportDirectory: URL?
+    private var finished = false
+    private static let retentionInterval: TimeInterval = 24 * 60 * 60
+
+    init(
+        items: [ClipboardHistoryItem],
+        exportRoot: URL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("boringNotch-ClipboardDragExports", isDirectory: true)
+    ) throws {
+        let textItems = items.filter {
+            if case .text = $0.content { return true }
+            return false
+        }
+        let combinedText = textItems.compactMap { item -> String? in
+            if case .text(let value, _) = item.content { return value }
+            return nil
+        }.joined(separator: "\n\n")
+
+        if textItems.count == items.count {
+            exportDirectory = nil
+            previewItems = Array(items.prefix(1))
+            if let first = items.first {
+                let writer = NSPasteboardItem()
+                writer.setString(combinedText, forType: .string)
+                if items.count == 1, case .text(let value, true) = first.content {
+                    writer.setString(value, forType: .URL)
+                }
+                writers = [writer]
+            } else {
+                writers = []
+            }
+            return
+        }
+
+        let fileManager = FileManager.default
+        try fileManager.createDirectory(
+            at: exportRoot, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700]
+        )
+        try fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: exportRoot.path)
+        Self.removeExpiredExports(in: exportRoot)
+        let directory = exportRoot.appendingPathComponent("drag-\(UUID().uuidString)", isDirectory: true)
+        try fileManager.createDirectory(
+            at: directory, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700]
+        )
+        var prepared = false
+        defer { if !prepared { try? fileManager.removeItem(at: directory) } }
+
+        var fileURLs: [URL] = []
+        var previews: [ClipboardHistoryItem] = []
+        for item in items {
+            let data: Data
+            let fileExtension: String
+            switch item.content {
+            case .text:
+                guard item.id == textItems.first?.id else { continue }
+                data = Data(combinedText.utf8)
+                fileExtension = "txt"
+            case .image(let original, let type, _):
+                data = original
+                fileExtension = type == .png ? "png" : "tiff"
+            }
+            let filename = String(format: "%02d", fileURLs.count + 1) + "-Clipboard.\(fileExtension)"
+            let url = directory.appendingPathComponent(filename)
+            try data.write(to: url, options: .atomic)
+            try fileManager.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+            fileURLs.append(url)
+            previews.append(item)
+        }
+        // AppKit also exposes these URLs as the aggregate legacy filename list used by older chat drop handlers.
+        let fileWriters = fileURLs.map { url in
             let writer = NSPasteboardItem()
-            writer.setString(value, forType: .string)
-            if isURL { writer.setString(value, forType: .URL) }
+            writer.setString(url.absoluteString, forType: .fileURL)
             return writer
-        case .image(let data, let type, _):
-            return ClipboardImagePromiseProvider(data: data, type: type, id: item.id)
+        }
+        writers = fileWriters
+        previewItems = previews
+        exportDirectory = directory
+        prepared = true
+    }
+
+    /// Successful drops may remain unsent drafts, so their files survive the native drag session.
+    func finish(completed: Bool) {
+        guard !finished else { return }
+        finished = true
+        guard let directory = exportDirectory else { return }
+        if completed {
+            try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: directory.path)
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + Self.retentionInterval) {
+                try? FileManager.default.removeItem(at: directory)
+            }
+        } else {
+            try? FileManager.default.removeItem(at: directory)
         }
     }
-}
 
-/// Offers original image bytes to editors and a file promise to Finder and upload targets.
-private final class ClipboardImagePromiseProvider: NSFilePromiseProvider {
-    private let imageData: Data
-    private let imageType: NSPasteboard.PasteboardType
-    // NSFilePromiseProvider keeps its delegate weak, so the provider owns the writer.
-    private let fileWriter: ClipboardImagePromiseWriter
-
-    init(data: Data, type: NSPasteboard.PasteboardType, id: UUID) {
-        imageData = data
-        imageType = type
-        let fileExtension = type == .png ? "png" : "tiff"
-        fileWriter = ClipboardImagePromiseWriter(data: data, filename: "Clipboard-\(id.uuidString).\(fileExtension)")
-        super.init()
-        fileType = type.rawValue
-        delegate = fileWriter
+    deinit {
+        if !finished, let exportDirectory { try? FileManager.default.removeItem(at: exportDirectory) }
     }
 
-    override func writableTypes(for pasteboard: NSPasteboard) -> [NSPasteboard.PasteboardType] {
-        [imageType] + super.writableTypes(for: pasteboard)
-    }
-
-    override func writingOptions(
-        forType type: NSPasteboard.PasteboardType, pasteboard: NSPasteboard
-    ) -> NSPasteboard.WritingOptions {
-        type == imageType ? [] : super.writingOptions(forType: type, pasteboard: pasteboard)
-    }
-
-    override func pasteboardPropertyList(forType type: NSPasteboard.PasteboardType) -> Any? {
-        type == imageType ? imageData : super.pasteboardPropertyList(forType: type)
-    }
-}
-
-private final class ClipboardImagePromiseWriter: NSObject, NSFilePromiseProviderDelegate {
-    private static let writeQueue: OperationQueue = {
-        let queue = OperationQueue()
-        queue.name = "Clipboard image file promises"
-        queue.maxConcurrentOperationCount = 1
-        return queue
-    }()
-
-    private let data: Data
-    private let filename: String
-
-    init(data: Data, filename: String) {
-        self.data = data
-        self.filename = filename
-    }
-
-    func filePromiseProvider(_ filePromiseProvider: NSFilePromiseProvider, fileNameForType fileType: String) -> String {
-        filename
-    }
-
-    func operationQueue(for filePromiseProvider: NSFilePromiseProvider) -> OperationQueue {
-        Self.writeQueue
-    }
-
-    func filePromiseProvider(
-        _ filePromiseProvider: NSFilePromiseProvider, writePromiseTo url: URL,
-        completionHandler: @escaping (Error?) -> Void
-    ) {
-        do {
-            // A canceled drag leaves no souvenirs: only the receiver requests this write.
-            try data.write(to: url, options: .atomic)
-            completionHandler(nil)
-        } catch {
-            completionHandler(error)
+    private static func removeExpiredExports(in root: URL) {
+        let keys: Set<URLResourceKey> = [.isDirectoryKey, .contentModificationDateKey]
+        guard let directories = try? FileManager.default.contentsOfDirectory(
+            at: root, includingPropertiesForKeys: Array(keys)
+        ) else { return }
+        let cutoff = Date().addingTimeInterval(-retentionInterval)
+        for directory in directories where directory.lastPathComponent.hasPrefix("drag-") {
+            guard let values = try? directory.resourceValues(forKeys: keys), values.isDirectory == true,
+                  let modified = values.contentModificationDate, modified < cutoff else { continue }
+            try? FileManager.default.removeItem(at: directory)
         }
     }
 }
