@@ -12,6 +12,9 @@ struct ClipboardHistoryView: View {
     @ObservedObject var manager: ClipboardHistoryManager
     @State private var query = ""
     @State private var selectedID: UUID?
+    @State private var selectedIDs: Set<UUID> = []
+    @State private var tileFrames: [UUID: CGRect] = [:]
+    @State private var isPointerInteracting = false
     @State private var copiedID: UUID?
     @State private var previewID: UUID?
     @State private var copyFailed = false
@@ -68,8 +71,9 @@ struct ClipboardHistoryView: View {
         .onChange(of: searchIsFocused) { _, focused in
             if focused { beginKeyboardSession() }
         }
-        .onChange(of: query) { selectedID = results.first?.id }
+        .onChange(of: query) { select(results.first.map { [$0.id] } ?? [], focus: false) }
         .onChange(of: manager.items.map(\.id)) {
+            selectedIDs.formIntersection(Set(results.map(\.id)))
             if !results.contains(where: { $0.id == selectedID }) {
                 selectedID = results.first?.id
             }
@@ -80,7 +84,7 @@ struct ClipboardHistoryView: View {
             if searchIsFocused {
                 searchIsFocused = false
                 gridIsFocused = true
-                selectedID = selectedID ?? results.first?.id
+                select(selectedID.map { [$0] } ?? results.first.map { [$0.id] } ?? [])
             } else {
                 moveSelection(by: 4)
             }
@@ -115,6 +119,7 @@ struct ClipboardHistoryView: View {
             if previewID != nil {
                 previewID = nil
             } else {
+                select([])
                 searchIsFocused = false
                 gridIsFocused = false
                 endKeyboardSession()
@@ -200,15 +205,49 @@ struct ClipboardHistoryView: View {
                     ForEach(results) { item in
                         ClipboardHistoryTile(
                             item: item,
-                            isSelected: selectedID == item.id,
+                            isSelected: selectedIDs.contains(item.id),
                             isCopied: copiedID == item.id,
+                            activate: {
+                                if selectedIDs.contains(item.id) {
+                                    select(selectedIDs.subtracting([item.id]))
+                                } else {
+                                    copy(item)
+                                }
+                            },
                             preview: { preview(item) },
                             copy: { copy(item) },
                             delete: { manager.delete(item) }
                         )
                         .id(item.id)
+                        .background {
+                            GeometryReader { geometry in
+                                Color.clear.preference(
+                                    key: ClipboardTileFrames.self,
+                                    value: [item.id: geometry.frame(in: .named("clipboardGrid"))]
+                                )
+                            }
+                        }
                     }
                 }
+            }
+            .coordinateSpace(name: "clipboardGrid")
+            .onPreferenceChange(ClipboardTileFrames.self) { tileFrames = $0 }
+            .overlay {
+                ClipboardSelectionInteraction(
+                    items: results,
+                    tileFrames: tileFrames,
+                    selectedIDs: selectedIDs,
+                    selectionChanged: { select($0) },
+                    clicked: { copy($0) },
+                    interactionChanged: { active in
+                        isPointerInteracting = active
+                        if active {
+                            SharingStateManager.shared.beginInteraction()
+                        } else {
+                            SharingStateManager.shared.endInteraction()
+                        }
+                    }
+                )
             }
             .scrollIndicators(.automatic)
             .focusable()
@@ -218,7 +257,7 @@ struct ClipboardHistoryView: View {
                 if let selectedID { proxy.scrollTo(selectedID) }
             }
             .onChange(of: selectedID) {
-                if let selectedID { proxy.scrollTo(selectedID) }
+                if !isPointerInteracting, let selectedID { proxy.scrollTo(selectedID) }
             }
         }
     }
@@ -245,7 +284,7 @@ struct ClipboardHistoryView: View {
                 .frame(width: 4, height: 4)
             Text(manager.isPaused ? "Capture paused" : "Stored until quit")
             Spacer()
-            Text(copyFailed ? "Copy failed. Try again." : (copiedID != nil ? "Copied · paste with ⌘V" : "Click a tile to copy · Preview to expand"))
+            Text(footerMessage)
                 .foregroundStyle(copyFailed ? .orange : .white.opacity(0.4))
         }
         .font(.system(size: 9))
@@ -273,10 +312,17 @@ struct ClipboardHistoryView: View {
         SharingStateManager.shared.endInteraction()
     }
 
+    private var footerMessage: String {
+        if copyFailed { return "Copy failed. Try again." }
+        if selectedIDs.count > 1 { return "\(selectedIDs.count) selected · Drag out to drop" }
+        if copiedID != nil { return "Copied · paste with ⌘V" }
+        return "Drag across tiles to select · Drag out to drop"
+    }
+
     private func moveSelection(by offset: Int) {
         guard !results.isEmpty else { return }
         let current = results.firstIndex { $0.id == selectedID } ?? (offset > 0 ? -offset : results.count - offset - 1)
-        selectedID = results[min(max(current + offset, 0), results.count - 1)].id
+        select([results[min(max(current + offset, 0), results.count - 1)].id])
     }
 
     private func copySelected() {
@@ -284,8 +330,17 @@ struct ClipboardHistoryView: View {
         copy(item)
     }
 
+    private func select(_ ids: Set<UUID>, focus: Bool = true) {
+        selectedIDs = ids
+        selectedID = results.first { ids.contains($0.id) }?.id
+        if focus, !ids.isEmpty {
+            searchIsFocused = false
+            gridIsFocused = true
+        }
+    }
+
     private func preview(_ item: ClipboardHistoryItem) {
-        selectedID = item.id
+        select([item.id])
         previewID = item.id
         searchIsFocused = false
         gridIsFocused = false
@@ -293,7 +348,7 @@ struct ClipboardHistoryView: View {
     }
 
     private func copy(_ item: ClipboardHistoryItem) {
-        selectedID = item.id
+        select([item.id])
         copyFailed = !manager.copy(item)
         copiedID = copyFailed ? nil : item.id
     }
@@ -303,6 +358,7 @@ private struct ClipboardHistoryTile: View {
     let item: ClipboardHistoryItem
     let isSelected: Bool
     let isCopied: Bool
+    let activate: () -> Void
     let preview: () -> Void
     let copy: () -> Void
     let delete: () -> Void
@@ -315,14 +371,14 @@ private struct ClipboardHistoryTile: View {
             .overlay {
                 GeometryReader { geometry in
                     ZStack {
-                        Button(action: copy) {
+                        Button(action: activate) {
                             tileContent(size: geometry.size)
                                 .frame(width: geometry.size.width, height: geometry.size.height)
                                 .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .help("Copy from \(item.source.name)")
-                        .accessibilityLabel("\(item.content.preview), from \(item.source.name). Copy")
+                        .help(isSelected ? "Click to deselect; drag to move the selection" : "Copy from \(item.source.name); drag across cards to select")
+                        .accessibilityLabel("\(item.content.preview), from \(item.source.name). \(isSelected ? "Deselect" : "Copy")")
 
                         VStack(spacing: 0) {
                             metadata
@@ -336,7 +392,7 @@ private struct ClipboardHistoryTile: View {
             .clipShape(RoundedRectangle(cornerRadius: 11))
             .overlay {
                 RoundedRectangle(cornerRadius: 11)
-                    .strokeBorder(.white.opacity(isSelected ? 0.55 : 0.06), lineWidth: 1)
+                    .strokeBorder(isSelected ? Color.accentColor : .white.opacity(0.06), lineWidth: isSelected ? 2 : 1)
                     .allowsHitTesting(false)
             }
             .onHover { isHovered = $0 }
