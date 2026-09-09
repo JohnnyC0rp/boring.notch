@@ -94,6 +94,7 @@ struct ClipboardHistoryTests {
 
         checkBounds(board)
         checkImages(board)
+        checkWideImageThumbnail(board)
         checkRace(board)
         manager.startMonitoring()
         manager.startMonitoring()
@@ -128,6 +129,11 @@ struct ClipboardHistoryTests {
         board.setData(png, forType: .png)
         manager.capturePasteboardChanges()
         expect(manager.items.count == 1, "Capture a valid bounded PNG image")
+        guard case .image(_, _, let thumbnail) = manager.items[0].content,
+              let tinyImage = thumbnail.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            fatalError("Expected a decodable image thumbnail")
+        }
+        expect(tinyImage.width == 2 && tinyImage.height == 2, "Do not upscale small image thumbnails")
         expect(manager.items[0].matches("image"), "Find images by type")
         expect(manager.copy(manager.items[0]), "Copy an image back")
         expect(board.data(forType: .png) == png, "Preserve original image bytes on paste")
@@ -137,6 +143,36 @@ struct ClipboardHistoryTests {
         board.setData(Data("Synthetic invalid image".utf8), forType: .png)
         manager.capturePasteboardChanges()
         expect(manager.items.count == 1, "Reject invalid image data")
+    }
+
+    private static func checkWideImageThumbnail(_ board: NSPasteboard) {
+        let manager = ClipboardHistoryManager(pasteboard: board)
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: 800, pixelsHigh: 200,
+            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+            isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+        ) else { fatalError("Could not create synthetic wide image") }
+        for x in 0..<800 {
+            for y in 0..<200 {
+                // Thin strokes model the equation images that lose detail in small thumbnails.
+                bitmap.setColor(y % 40 < 4 || x % 100 < 4 ? .white : .black, atX: x, y: y)
+            }
+        }
+        guard let png = bitmap.representation(using: .png, properties: [:]) else {
+            fatalError("Could not encode synthetic wide image")
+        }
+        board.clearContents()
+        board.setData(png, forType: .png)
+        manager.capturePasteboardChanges()
+        expect(manager.items.count == 1, "Capture a wide image with thin strokes")
+        guard case .image(let original, let type, let thumbnail) = manager.items[0].content,
+              let image = thumbnail.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+            fatalError("Expected a decodable wide image thumbnail")
+        }
+        expect(image.width == 320 && image.height == 80, "Retain Retina thumbnail detail and the original aspect ratio")
+        expect(original == png && type == .png, "Thumbnail generation preserves original encoded image data")
+        expect(manager.copy(manager.items[0]), "Copy the original wide image successfully")
+        expect(board.data(forType: .png) == png, "Copy full-resolution original bytes instead of the thumbnail")
     }
 
     private static func checkRace(_ board: NSPasteboard) {

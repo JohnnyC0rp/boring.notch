@@ -353,17 +353,12 @@ private struct ClipboardHistoryTile: View {
         case .image(_, _, let thumbnail):
             Image(nsImage: thumbnail)
                 .resizable()
-                .scaledToFill()
+                .interpolation(.high)
+                .scaledToFit()
+                .padding(.horizontal, 7)
+                .padding(.top, 26)
+                .padding(.bottom, 35)
                 .frame(width: size.width, height: size.height)
-                .clipped()
-                .overlay {
-                    LinearGradient(stops: [
-                        .init(color: .black.opacity(0.7), location: 0),
-                        .init(color: .clear, location: 0.3),
-                        .init(color: .clear, location: 0.65),
-                        .init(color: .black.opacity(0.65), location: 1)
-                    ], startPoint: .top, endPoint: .bottom)
-                }
         case .text(let value, _):
             Text(String(value.prefix(600)))
                 .font(.system(size: 11, weight: .medium))
@@ -488,6 +483,7 @@ private struct ClipboardHistoryPreview: View {
         case .image(_, _, let thumbnail):
             Image(nsImage: image ?? thumbnail)
                 .resizable()
+                .interpolation(.high)
                 .scaledToFit()
                 .padding(4)
                 .accessibilityLabel("Full image preview")
