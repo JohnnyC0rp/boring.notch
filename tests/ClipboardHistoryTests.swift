@@ -96,6 +96,7 @@ struct ClipboardHistoryTests {
         checkImages(board)
         checkWideImageThumbnail(board)
         checkRace(board)
+        checkRecentCopies(board)
         manager.startMonitoring()
         manager.startMonitoring()
         expect(manager.isMonitoring, "Starting capture is idempotent")
@@ -173,6 +174,43 @@ struct ClipboardHistoryTests {
         expect(original == png && type == .png, "Thumbnail generation preserves original encoded image data")
         expect(manager.copy(manager.items[0]), "Copy the original wide image successfully")
         expect(board.data(forType: .png) == png, "Copy full-resolution original bytes instead of the thumbnail")
+    }
+
+    private static func checkRecentCopies(_ board: NSPasteboard) {
+        let manager = ClipboardHistoryManager(pasteboard: board)
+        manager.startMonitoring()
+        defer { manager.stopMonitoring() }
+        expect(!manager.hasRecentCopies(), "Empty history does not open the clipboard on hover")
+        write("Synthetic recent first", to: board)
+        manager.capturePasteboardChanges()
+        expect(!manager.hasRecentCopies(), "One recent item does not open the clipboard on hover")
+        write("Synthetic recent first", to: board)
+        manager.capturePasteboardChanges()
+        expect(!manager.hasRecentCopies(), "Repeated copies of one item do not count as two items")
+        write("Synthetic concealed recent item", to: board, marker: "org.nspasteboard.ConcealedType")
+        manager.capturePasteboardChanges()
+        expect(!manager.hasRecentCopies(), "Excluded copies do not influence hover routing")
+        write("Synthetic recent second", to: board)
+        manager.capturePasteboardChanges()
+        expect(manager.hasRecentCopies(), "Two recent detected items open the clipboard on hover")
+        let oldest = manager.items[1].capturedAt
+        expect(manager.hasRecentCopies(at: oldest.addingTimeInterval(30)),
+               "Include two items within the thirty-second window")
+        expect(!manager.hasRecentCopies(at: oldest.addingTimeInterval(30.001)),
+               "Expire the rule when only one item is recent")
+        expect(!manager.hasRecentCopies(at: oldest.addingTimeInterval(-1)),
+               "Ignore future timestamps after a clock change")
+        manager.setPaused(true)
+        expect(!manager.hasRecentCopies(), "Paused capture does not override the default hover pane")
+        manager.setPaused(false)
+        expect(manager.hasRecentCopies(), "Resumed capture uses the existing recent detection timestamps")
+        manager.stopMonitoring()
+        expect(!manager.hasRecentCopies(), "Stopped capture does not override the default hover pane")
+        manager.startMonitoring()
+        manager.delete(manager.items[0])
+        expect(!manager.hasRecentCopies(), "Deleted items do not count toward the hover rule")
+        manager.clearHistory()
+        expect(!manager.hasRecentCopies(), "Cleared history does not keep an automatic clipboard override")
     }
 
     private static func checkRace(_ board: NSPasteboard) {

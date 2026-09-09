@@ -81,6 +81,12 @@ final class ClipboardHistoryManager: ObservableObject {
         isPaused = paused
     }
 
+    /// Evaluated only when hover opens the notch; detection timestamps need no extra polling.
+    func hasRecentCopies(at now: Date = Date()) -> Bool {
+        guard isMonitoring, !isPaused, items.count >= 2 else { return false }
+        return items.prefix(2).allSatisfy { (0...30).contains(now.timeIntervalSince($0.capturedAt)) }
+    }
+
     func clearHistory() {
         items.removeAll()
         lastChangeCount = pasteboard.changeCount
