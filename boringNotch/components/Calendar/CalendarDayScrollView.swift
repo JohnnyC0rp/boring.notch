@@ -14,6 +14,7 @@ struct CalendarDayScrollView<Labels: View, Content: View>: NSViewRepresentable {
     let targetTime: Date
     let focusCurrentTime: Bool
     let resetID: Int
+    var pointsPerHour = CalendarDayStackGeometry.pointsPerHour
     let onScroll: (CalendarDayStackGeometry.Position, Bool) -> Void
     let onPositionApplied: (Int) -> Void
     @ViewBuilder let labels: () -> Labels
@@ -56,7 +57,11 @@ struct CalendarDayScrollView<Labels: View, Content: View>: NSViewRepresentable {
         let origin = container.scrollView.requestedOrigin
         let previousPosition = CalendarDayStackGeometry.position(at: origin.y, in: coordinator.days)
         let oldRange = previousPosition.flatMap { coordinator.ranges[$0.day] }
-        let previousTime = oldRange.map { min($0.end, $0.start.addingTimeInterval(origin.x / CalendarDayStackGeometry.pointsPerHour * 3600)) }
+        let changedScale = coordinator.pointsPerHour != pointsPerHour
+        let anchorOffset = changedScale ? container.scrollView.contentView.bounds.width / 2 : 0
+        let previousTime = oldRange.map {
+            min($0.end, $0.start.addingTimeInterval((origin.x + anchorOffset) / coordinator.pointsPerHour * 3600))
+        }
         let ranges = Dictionary(uniqueKeysWithValues: zip(days, visibleRanges).map { ($0.0.id, $0.1) })
         let changedWindow = coordinator.days.first?.id != days.first?.id
         let changedRanges = coordinator.ranges != ranges
@@ -65,22 +70,23 @@ struct CalendarDayScrollView<Labels: View, Content: View>: NSViewRepresentable {
         coordinator.updating = true
         coordinator.days = days
         coordinator.ranges = ranges
+        coordinator.pointsPerHour = pointsPerHour
         coordinator.resetID = resetID
         coordinator.onScroll = onScroll
         coordinator.onPositionApplied = onPositionApplied
-        let width = (visibleRanges.map(\.duration).max() ?? 12 * 3600) / 3600 * CalendarDayStackGeometry.pointsPerHour
+        let width = (visibleRanges.map(\.duration).max() ?? 12 * 3600) / 3600 * pointsPerHour
         let height = CalendarDayStackGeometry.documentHeight(for: days)
         coordinator.hosting?.rootView = content()
         coordinator.hosting?.frame = NSRect(x: 0, y: 0, width: width, height: height)
         coordinator.labelHosting?.rootView = labels()
         coordinator.labelHosting?.frame = NSRect(x: 0, y: 0, width: 68, height: height)
-        if changedWindow || changedRanges || shouldReset {
+        if changedWindow || changedRanges || changedScale || shouldReset {
             let position = shouldReset ? CalendarDayStackGeometry.Position(day: targetDay, intraDayOffset: 0)
                 : previousPosition ?? .init(day: targetDay, intraDayOffset: 0)
             let time = shouldReset ? targetTime : previousTime ?? targetTime
             let range = ranges[position.day] ?? visibleRanges.first
-            let x = (range.map { CalendarTimelineGeometry.position(of: time, in: $0, pointsPerHour: CalendarDayStackGeometry.pointsPerHour) } ?? 0)
-                - (shouldReset && focusCurrentTime ? CalendarDayStackGeometry.pointsPerHour : 0)
+            let x = (range.map { CalendarTimelineGeometry.position(of: time, in: $0, pointsPerHour: pointsPerHour) } ?? 0)
+                - (shouldReset ? (focusCurrentTime ? pointsPerHour : 0) : anchorOffset)
             let beforeHours = shouldReset && time >= position.day && range.map { time < $0.start } == true
             let y = CalendarDayStackGeometry.offset(of: position, in: days) - (beforeHours ? CalendarDayStackGeometry.rowSpacing : 0)
             let appliedID = coordinator.pendingResetID
@@ -113,6 +119,7 @@ struct CalendarDayScrollView<Labels: View, Content: View>: NSViewRepresentable {
         var labelHosting: NSHostingView<Labels>?
         var days: [CalendarDayStackGeometry.Day] = []
         var ranges: [Date: DateInterval] = [:]
+        var pointsPerHour = CalendarDayStackGeometry.pointsPerHour
         var resetID: Int?
         var pendingResetID: Int?
         var observer: NSObjectProtocol?

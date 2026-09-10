@@ -11,6 +11,7 @@ import SwiftUI
 struct CalendarTimelineView: View {
     @ObservedObject private var manager = CalendarManager.shared
     @ObservedObject private var coordinator = BoringViewCoordinator.shared
+    @Default(.calendarTimelineScale) private var timelineScale
     @Default(.hideAllDayEvents) private var hideAllDayEvents
     @Default(.hideCompletedReminders) private var hideCompletedReminders
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -38,6 +39,7 @@ struct CalendarTimelineView: View {
         _targetTime = State(initialValue: Self.initialTime(for: date))
     }
 
+    private var pointsPerHour: Double { CalendarTimelineScale.pointsPerHour(for: timelineScale) }
     private var days: [CalendarDayStackGeometry.Day] { CalendarDayStackGeometry.days(centeredOn: windowCenter) }
     private var hasAccess: Bool { calendarAccess == .fullAccess || reminderAccess == .fullAccess }
     private var requestID: String { "\(days.first?.id.timeIntervalSince1970 ?? 0)-\(reloadID)" }
@@ -56,9 +58,9 @@ struct CalendarTimelineView: View {
                 ZStack(alignment: .bottom) {
                     TimelineView(.periodic(from: .now, by: 30)) { context in
                         let ranges = visibleRanges
-                        let width = (ranges.map(\.duration).max() ?? 12 * 3600) / 3600 * CalendarDayStackGeometry.pointsPerHour
+                        let width = (ranges.map(\.duration).max() ?? 12 * 3600) / 3600 * pointsPerHour
                         CalendarDayScrollView(days: days, visibleRanges: ranges, targetDay: targetDay, targetTime: targetTime,
-                                              focusCurrentTime: todayResetID == resetID, resetID: resetID,
+                                              focusCurrentTime: todayResetID == resetID, resetID: resetID, pointsPerHour: pointsPerHour,
                                               onScroll: didScroll, onPositionApplied: didPosition) {
                             VStack(spacing: CalendarDayStackGeometry.rowSpacing) {
                                 ForEach(days) { day in dayLabel(day, now: context.date) }
@@ -67,7 +69,7 @@ struct CalendarTimelineView: View {
                             VStack(alignment: .leading, spacing: CalendarDayStackGeometry.rowSpacing) {
                                 ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
                                     CalendarTimelineTrack(day: day.interval, range: ranges[index], events: events(on: day.interval).filter { !$0.isAllDay && !$0.type.isReminder },
-                                                          selectedEvent: selectedEvent, now: context.date, width: width, highlighted: todayHighlighted) {
+                                                          selectedEvent: selectedEvent, now: context.date, width: width, highlighted: todayHighlighted, pointsPerHour: pointsPerHour) {
                                         select($0, on: day.id)
                                     }
                                 }
@@ -117,6 +119,7 @@ struct CalendarTimelineView: View {
             if loading { ProgressView().controlSize(.mini) }
             Spacer(minLength: 8)
             Text("↕ DAYS   ↔ HOURS").font(.system(size: 9, weight: .medium)).foregroundStyle(.white.opacity(0.4))
+            CalendarScaleControl()
             dayArrow("chevron.up", offset: -1)
             Button("Today", action: goToToday)
                 .font(.system(size: 11, weight: .medium))
@@ -228,8 +231,8 @@ struct CalendarTimelineView: View {
 
     private func selectedBlockIsShort(_ event: EventModel) -> Bool {
         let day = visibleRange(for: targetDay)
-        let start = CalendarTimelineGeometry.position(of: event.start, in: day, pointsPerHour: CalendarDayStackGeometry.pointsPerHour)
-        let end = CalendarTimelineGeometry.position(of: event.end, in: day, pointsPerHour: CalendarDayStackGeometry.pointsPerHour)
+        let start = CalendarTimelineGeometry.position(of: event.start, in: day, pointsPerHour: pointsPerHour)
+        let end = CalendarTimelineGeometry.position(of: event.end, in: day, pointsPerHour: pointsPerHour)
         return end - start <= 28
     }
 
@@ -330,7 +333,7 @@ private struct CalendarTimelineTrack: View {
     let now: Date
     let width: CGFloat
     let highlighted: Bool
-    private var pointsPerHour: Double { CalendarDayStackGeometry.pointsPerHour }
+    let pointsPerHour: Double
     let select: (EventModel) -> Void
 
     private var placements: [CalendarTimelineGeometry.Placement] {
@@ -377,17 +380,9 @@ private struct CalendarTimelineTrack: View {
             }
             .frame(width: width, height: 76, alignment: .topLeading)
             ZStack(alignment: .topLeading) {
-                ForEach(CalendarTimelineGeometry.hourTicks(in: range), id: \.self) { tick in
-                    let labelWidth = CGFloat(pointsPerHour - 4)
-                    let tickX = CGFloat(CalendarTimelineGeometry.position(of: tick, in: range, pointsPerHour: pointsPerHour))
-                    let maximumX = max(0, CGFloat(range.duration / 3600 * pointsPerHour) - labelWidth)
-                    let alignment: Alignment = tick == range.start ? .leading : tick == range.end ? .trailing : .center
-                    Text(tickLabel(tick)).font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .lineLimit(1).truncationMode(.tail)
-                        .frame(width: labelWidth, height: 16, alignment: alignment)
-                        .foregroundStyle(.white.opacity(0.4))
-                        .offset(x: min(max(0, tickX - labelWidth / 2), maximumX))
-                }
+                let badgeLeading = Double(min(max(0, CGFloat(progress) - badgeWidth / 2), max(0, width - badgeWidth)))
+                CalendarTimelineHourLabels(range: range, pointsPerHour: pointsPerHour,
+                                           exclusions: currentDay ? [badgeLeading..<(badgeLeading + Double(badgeWidth))] : [], format: tickLabel)
                 if currentDay {
                     CalendarTimelineTimeBadge(time: now, highlighted: highlighted)
                         .offset(x: min(max(0, CGFloat(progress) - badgeWidth / 2), max(0, width - badgeWidth)))

@@ -152,3 +152,42 @@ struct CalendarSettings: View {
         }
     }
 }
+
+struct CalendarLayoutSettings: View {
+    @Default(.calendarTimelineScale) private var scale
+
+    private var boundedScale: Binding<Double> {
+        Binding(
+            get: { CalendarTimelineScale.clamped(scale) },
+            set: { scale = CalendarTimelineScale.clamped($0) }
+        )
+    }
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent("Horizontal scale") {
+                    Text("\(Int((CalendarTimelineScale.clamped(scale) * 100).rounded()))%")
+                        .monospacedDigit()
+                }
+                Slider(value: boundedScale, in: CalendarTimelineScale.range, step: 0.05) {
+                    Text("Horizontal timeline scale")
+                } minimumValueLabel: {
+                    Text("75%")
+                } maximumValueLabel: {
+                    Text("250%")
+                }
+                .labelsHidden()
+                .accessibilityValue("\(Int((CalendarTimelineScale.clamped(scale) * 100).rounded())) percent")
+
+                Button("Reset to 100%") { scale = 1.0 }
+                    .disabled(CalendarTimelineScale.clamped(scale) == 1.0)
+            } header: {
+                Text("Timeline")
+            } footer: {
+                Text("Applies to the Home and Calendar timelines. Text size, day height, and the month grid stay unchanged. Drag the scale wheel in either timeline to adjust it directly.")
+            }
+        }
+        .navigationTitle("Calendar Layout")
+    }
+}

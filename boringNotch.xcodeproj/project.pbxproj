@@ -16,6 +16,7 @@
 		ECA61DF2A3514227AE5AA6A1 /* HomeCalendarGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33DB1CE831874CF099493DE6 /* HomeCalendarGeometry.swift */; };
 		496A7E65CD21464891126DC6 /* CalendarTodayShortcut.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE6DB69B1F13439FB0563335 /* CalendarTodayShortcut.swift */; };
 		D90FCC73D2E74963876919B5 /* CalendarTimelineGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = F36BDAE2AAD04EB4BB47EAB3 /* CalendarTimelineGeometry.swift */; };
+		9F5D435D4B7645A5A8C99D31 /* CalendarScaleControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DBB6C43E2F34090B7DAF180 /* CalendarScaleControl.swift */; };
 		569FE036E08449AF8F597113 /* CalendarMonthView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 048863E7FD57471FA6624048 /* CalendarMonthView.swift */; };
 		A3810CF638D840DB810683A6 /* CalendarMonthGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7B5174C0EF14A268F12DB6A /* CalendarMonthGeometry.swift */; };
 		07FE456E7AEA085D9FCA6D97 /* MeetingLinkDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9B2A5E5F4D28F1DD9CD0B09 /* MeetingLinkDetector.swift */; };
@@ -240,6 +241,7 @@
 		33DB1CE831874CF099493DE6 /* HomeCalendarGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarGeometry.swift; sourceTree = "<group>"; };
 		CE6DB69B1F13439FB0563335 /* CalendarTodayShortcut.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTodayShortcut.swift; sourceTree = "<group>"; };
 		F36BDAE2AAD04EB4BB47EAB3 /* CalendarTimelineGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarTimelineGeometry.swift; sourceTree = "<group>"; };
+		5DBB6C43E2F34090B7DAF180 /* CalendarScaleControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarScaleControl.swift; sourceTree = "<group>"; };
 		048863E7FD57471FA6624048 /* CalendarMonthView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMonthView.swift; sourceTree = "<group>"; };
 		A7B5174C0EF14A268F12DB6A /* CalendarMonthGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarMonthGeometry.swift; sourceTree = "<group>"; };
 		0268933F488E47DFB58E48CF /* VisualEffectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VisualEffectView.swift; sourceTree = "<group>"; };
@@ -725,6 +727,7 @@
 				33DB1CE831874CF099493DE6 /* HomeCalendarGeometry.swift */,
 				CE6DB69B1F13439FB0563335 /* CalendarTodayShortcut.swift */,
 				F36BDAE2AAD04EB4BB47EAB3 /* CalendarTimelineGeometry.swift */,
+				5DBB6C43E2F34090B7DAF180 /* CalendarScaleControl.swift */,
 				048863E7FD57471FA6624048 /* CalendarMonthView.swift */,
 				A7B5174C0EF14A268F12DB6A /* CalendarMonthGeometry.swift */,
 			);
@@ -1147,6 +1150,7 @@
 				ECA61DF2A3514227AE5AA6A1 /* HomeCalendarGeometry.swift in Sources */,
 				496A7E65CD21464891126DC6 /* CalendarTodayShortcut.swift in Sources */,
 				D90FCC73D2E74963876919B5 /* CalendarTimelineGeometry.swift in Sources */,
+				9F5D435D4B7645A5A8C99D31 /* CalendarScaleControl.swift in Sources */,
 				569FE036E08449AF8F597113 /* CalendarMonthView.swift in Sources */,
 				A3810CF638D840DB810683A6 /* CalendarMonthGeometry.swift in Sources */,
 				5955950D2E900ED800C66711 /* ApplicationRelauncher.swift in Sources */,

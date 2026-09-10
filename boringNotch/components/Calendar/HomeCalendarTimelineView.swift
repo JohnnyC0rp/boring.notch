@@ -10,7 +10,6 @@ import EventKit
 import SwiftUI
 
 private let homeCalendarTimeCapsuleWidth = 72.0
-private let homeCalendarHourLabelWidth = 42.0
 
 /// A continuous strip of time beside the player, with a bounded rolling data window.
 @MainActor
@@ -19,6 +18,7 @@ struct HomeCalendarTimelineView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @ObservedObject private var manager = CalendarManager.shared
     @ObservedObject private var coordinator = BoringViewCoordinator.shared
+    @Default(.calendarTimelineScale) private var timelineScale
     @Default(.hideAllDayEvents) private var hideAllDayEvents
     @Default(.hideCompletedReminders) private var hideCompletedReminders
     @State private var windowCenter: Date
@@ -50,7 +50,7 @@ struct HomeCalendarTimelineView: View {
         HomeCalendarGeometry.days(centeredOn: windowCenter, events: events.map {
             .init(id: $0.homeTimelineID, start: $0.start, end: $0.end,
                   isAllDay: $0.isAllDay, isReminder: $0.type.isReminder)
-        })
+        }, pointsPerHour: CalendarTimelineScale.pointsPerHour(for: timelineScale))
     }
     private var hasAccess: Bool { calendarAccess == .fullAccess || reminderAccess == .fullAccess }
     private var requestID: String { "\(Calendar.current.startOfDay(for: windowCenter).timeIntervalSince1970)-\(reloadID)" }
@@ -150,6 +150,7 @@ struct HomeCalendarTimelineView: View {
                 .help("All-day events and reminders")
                 .accessibilityLabel("\(special.count) all-day events and reminders")
             }
+            CalendarScaleControl()
             dayArrow("chevron.left", offset: -1)
             Button("Today") { jump(to: Date(), showCurrentTime: true) }
                 .help("Today (T)")
@@ -282,7 +283,7 @@ private struct HomeCalendarDayLane: View {
 
     private var layout: [CalendarTimelineGeometry.Placement] {
         CalendarTimelineGeometry.layout(events.map { .init(id: $0.homeTimelineID, start: $0.start, end: $0.end) },
-                                        in: day.visibleInterval, pointsPerHour: HomeCalendarGeometry.pointsPerHour)
+                                        in: day.visibleInterval, pointsPerHour: day.pointsPerHour)
     }
 
     var body: some View {
@@ -331,13 +332,8 @@ private struct HomeCalendarDayLane: View {
             }
             .frame(width: day.width, height: 80, alignment: .topLeading)
             ZStack(alignment: .topLeading) {
-                ForEach(CalendarTimelineGeometry.hourTicks(in: day.visibleInterval), id: \.self) { tick in
-                    Text(tickLabel(tick))
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.4))
-                        .opacity(isTickUnderTimeMarker(tick) ? 0 : 1)
-                        .offset(x: min(position(tick) + 4, day.width - homeCalendarHourLabelWidth))
-                }
+                CalendarTimelineHourLabels(range: day.visibleInterval, pointsPerHour: day.pointsPerHour,
+                                           exclusions: hourLabelExclusions, format: tickLabel)
                 Text(day.interval.start.formatted(.dateTime.weekday(.abbreviated).day()).uppercased())
                     .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(.red.opacity(0.75))
@@ -411,20 +407,25 @@ private struct HomeCalendarDayLane: View {
     }
 
     private func position(_ date: Date) -> Double {
-        CalendarTimelineGeometry.position(of: date, in: day.visibleInterval, pointsPerHour: HomeCalendarGeometry.pointsPerHour)
+        CalendarTimelineGeometry.position(of: date, in: day.visibleInterval, pointsPerHour: day.pointsPerHour)
     }
 
-    private func isTickUnderTimeMarker(_ tick: Date) -> Bool {
+    private var hourLabelExclusions: [Range<Double>] {
+        let dayLabel = day.interval.start.formatted(.dateTime.weekday(.abbreviated).day()).uppercased()
+        let dayLabelWidth = Double(ceil((dayLabel as NSString).size(withAttributes: [
+            .font: NSFont.systemFont(ofSize: 8, weight: .bold)
+        ]).width)) + 8
+        var exclusions = [39..<(39 + dayLabelWidth)]
         let markerLeading: Double
         if let gapMarkerOffset {
             markerLeading = gapMarkerOffset - homeCalendarTimeCapsuleWidth / 2
         } else if day.isTimeVisible(now) {
             markerLeading = min(max(0, position(now) - homeCalendarTimeCapsuleWidth / 2), day.width - homeCalendarTimeCapsuleWidth)
         } else {
-            return false
+            return exclusions
         }
-        let leading = min(position(tick) + 4, day.width - homeCalendarHourLabelWidth)
-        return leading < markerLeading + homeCalendarTimeCapsuleWidth && leading + homeCalendarHourLabelWidth > markerLeading
+        exclusions.append(markerLeading..<(markerLeading + homeCalendarTimeCapsuleWidth))
+        return exclusions
     }
 
     private func tickLabel(_ tick: Date) -> String {
@@ -563,4 +564,33 @@ private struct HomeCalendarEventDetails: View {
 
 private extension EventModel {
     var homeTimelineID: String { "\(id)-\(start.timeIntervalSince1970)" }
+}
+
+/// Shared measured hour labels for the Home strip and the stacked Calendar pane.
+struct CalendarTimelineHourLabels: View {
+    let range: DateInterval
+    let pointsPerHour: Double
+    var exclusions: [Range<Double>] = []
+    let format: (Date) -> String
+
+    var body: some View {
+        let ticks = CalendarTimelineGeometry.hourTicks(in: range)
+        let strings = Dictionary(uniqueKeysWithValues: ticks.map { ($0, format($0)) })
+        let font = NSFont.monospacedSystemFont(ofSize: 11, weight: .medium)
+        let widths = ticks.map { Double(ceil(((strings[$0] ?? "") as NSString).size(withAttributes: [.font: font]).width)) + 1 }
+        let labels = CalendarTimelineGeometry.hourLabels(in: range, pointsPerHour: pointsPerHour,
+                                                         widths: widths, avoiding: exclusions)
+        ZStack(alignment: .topLeading) {
+            ForEach(labels) { label in
+                Text(strings[label.id] ?? "")
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .fixedSize()
+                    .frame(width: label.width, height: 16, alignment: .leading)
+                    .foregroundStyle(.white.opacity(0.4))
+                    .offset(x: label.x)
+            }
+        }
+        .frame(width: range.duration / 3600 * pointsPerHour, height: 16, alignment: .topLeading)
+        .allowsHitTesting(false)
+    }
 }
