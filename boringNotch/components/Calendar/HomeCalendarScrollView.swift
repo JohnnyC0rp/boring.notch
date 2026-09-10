@@ -39,7 +39,10 @@ struct HomeCalendarScrollView<Content: View>: NSViewRepresentable {
 
     func updateNSView(_ scrollView: HomeCalendarNativeScrollView, context: Context) {
         let coordinator = context.coordinator
-        let rebasedOffset = HomeCalendarGeometry.rebasedOffset(scrollView.contentView.bounds.minX, from: coordinator.days, to: days)
+        let changedScale = coordinator.days.first?.pointsPerHour != days.first?.pointsPerHour
+        let anchorOffset = changedScale ? scrollView.contentView.bounds.width / 2 : 0
+        let rebasedOffset = HomeCalendarGeometry.rebasedOffset(scrollView.contentView.bounds.minX + anchorOffset,
+                                                              from: coordinator.days, to: days) - anchorOffset
         let changedLayout = coordinator.days != days
         let shouldReset = coordinator.resetID != resetID
         coordinator.days = days
