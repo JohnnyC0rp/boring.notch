@@ -9,13 +9,15 @@ enum CalendarTimelineScaleTests {
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let center = date("2026-09-10T12:34:56Z")
         let original = HomeCalendarGeometry.days(centeredOn: center, calendar: calendar)
-        let densities = [72.0, 96.0, 240.0]
-        expect(CalendarTimelineScale.pointsPerHour(for: -2) == 72, "The minimum scale stays readable at 72 points per hour")
+        let densities = [315.0 / 24, 315.0 / 12, 524.0 / 12, 72.0, 96.0, 240.0]
+        expect(CalendarTimelineScale.pointsPerHour(for: -2, fitting: 315) == 315.0 / 12,
+               "The minimum scale fits the whole displayed day into the viewport")
         expect(CalendarTimelineScale.pointsPerHour(for: 1) == 96, "The default scale retains the existing timeline density")
         expect(CalendarTimelineScale.pointsPerHour(for: 10) == 240, "The maximum scale stays bounded at 240 points per hour")
         for invalid in [Double.nan, .infinity, -.infinity] {
             expect(CalendarTimelineScale.pointsPerHour(for: invalid) == 96, "Invalid stored scale values fall back to the default")
         }
+        verifyFittedDay(start: center)
 
         for density in densities {
             let scaled = rescale(original, to: density)
@@ -85,6 +87,26 @@ enum CalendarTimelineScaleTests {
         print("PASS \(checks) calendar horizontal-scale geometry checks")
     }
 
+    private static func verifyFittedDay(start: Date) {
+        for viewportWidth in [220.0, 315.0, 524.0] {
+            for duration in [12.0, 14.0, 23.0, 23.5, 24.0, 24.5, 25.0] {
+                let interval = DateInterval(start: start, duration: duration * 3600)
+                let density = CalendarTimelineScale.pointsPerHour(for: 0, fitting: viewportWidth, duration: interval.duration)
+                let day = HomeCalendarGeometry.Day(interval: interval, pointsPerHour: density)
+                expect(close(day.width, viewportWidth), "Fit day includes all cropped, overnight and DST hours without horizontal overflow")
+                expect(density > 0 && density.isFinite, "Fitted geometry always has a usable positive density")
+                expect(close(CalendarTimelineScale.pointsPerHour(for: density / 192, fitting: viewportWidth, duration: interval.duration), density),
+                       "Requested density below Fit day never makes the timeline smaller than its pane")
+                let endX = CalendarTimelineGeometry.position(of: interval.end, in: interval, pointsPerHour: density)
+                expect(close(endX, viewportWidth), "The fitted last hour lands exactly at the right pane edge")
+            }
+        }
+        for width in [0.0, -1.0] {
+            let density = CalendarTimelineScale.pointsPerHour(for: 0, fitting: width)
+            expect(density > 0 && density.isFinite, "Pending or collapsed viewport layout cannot produce division by zero")
+        }
+    }
+
     private static func verifyHourLabels(start: Date, densities: [Double]) {
         // Widths sampled from 11-point monospaced 24-hour, 12-hour, Japanese and DST labels.
         for density in densities {
@@ -96,7 +118,9 @@ enum CalendarTimelineScaleTests {
                     let widths = Array(repeating: width, count: ticks.count)
                     for exclusions: [Range<Double>] in [[], [210..<282], [0..<70, (totalWidth - 60)..<totalWidth]] {
                         let labels = CalendarTimelineGeometry.hourLabels(in: range, pointsPerHour: density, widths: widths, avoiding: exclusions)
-                        expect(!labels.isEmpty, "Reasonable ranges retain readable time labels at every density")
+                        if exclusions.isEmpty {
+                            expect(!labels.isEmpty, "Fitted day ranges retain readable time labels at every density")
+                        }
                         for label in labels {
                             expect(label.x >= 0 && label.x + label.width <= totalWidth,
                                    "Complete time labels fit within the day at both endpoints")

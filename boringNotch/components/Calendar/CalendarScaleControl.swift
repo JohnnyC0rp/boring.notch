@@ -3,19 +3,33 @@ import SwiftUI
 
 /// A stationary thumbwheel; dragging changes time spacing without resizing the control.
 struct CalendarScaleControl: View {
+    var minimumScale: Double = 0
+
     @Default(.calendarTimelineScale) private var scale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @GestureState private var isDragging = false
     @State private var dragOrigin: Double?
     @State private var isHovered = false
 
-    private var percentage: Int {
-        Int((CalendarTimelineScale.clamped(scale) * 100).rounded())
+    private var lowerBound: Double {
+        CalendarTimelineScale.clamped(minimumScale)
+    }
+
+    private var effectiveScale: Double {
+        max(lowerBound, CalendarTimelineScale.clamped(scale))
+    }
+
+    private var fitsDay: Bool {
+        CalendarTimelineScale.clamped(scale) <= lowerBound
+    }
+
+    private var scaleDescription: String {
+        fitsDay ? "Fit day" : "\(Int((effectiveScale * 100).rounded()))%"
     }
 
     var body: some View {
         Canvas { context, size in
-            let phase = reduceMotion ? 0 : (CalendarTimelineScale.clamped(scale) * 40).truncatingRemainder(dividingBy: 5)
+            let phase = reduceMotion ? 0 : (effectiveScale * 40).truncatingRemainder(dividingBy: 5)
             for index in -1...6 {
                 let x = CGFloat(index) * 5 + phase
                 let distance = abs(x - size.width / 2) / (size.width / 2)
@@ -35,14 +49,14 @@ struct CalendarScaleControl: View {
                 .updating($isDragging) { _, active, _ in active = true }
                 .onChanged { value in
                     if dragOrigin == nil {
-                        dragOrigin = CalendarTimelineScale.clamped(scale)
+                        dragOrigin = effectiveScale
                         SharingStateManager.shared.beginInteraction()
                     }
                     let proposed = (dragOrigin ?? 1.0) + value.translation.width / 160
                     setScale(proposed)
-                    if !CalendarTimelineScale.range.contains(proposed) {
+                    if proposed < lowerBound || proposed > CalendarTimelineScale.range.upperBound {
                         // Reverse immediately at a limit, without unwinding the overshoot first.
-                        dragOrigin = CalendarTimelineScale.clamped(proposed) - value.translation.width / 160
+                        dragOrigin = max(lowerBound, CalendarTimelineScale.clamped(proposed)) - value.translation.width / 160
                     }
                 }
                 .onEnded { _ in finishDragging() }
@@ -52,30 +66,34 @@ struct CalendarScaleControl: View {
         }
         .onDisappear { finishDragging() }
         .contextMenu {
-            Button("Zoom In") { setScale(scale + 0.05) }
-                .disabled(CalendarTimelineScale.clamped(scale) >= CalendarTimelineScale.range.upperBound)
-            Button("Zoom Out") { setScale(scale - 0.05) }
-                .disabled(CalendarTimelineScale.clamped(scale) <= CalendarTimelineScale.range.lowerBound)
+            Button("Zoom In") { setScale(effectiveScale + 0.05) }
+                .disabled(effectiveScale >= CalendarTimelineScale.range.upperBound)
+            Button("Zoom Out") { setScale(effectiveScale - 0.05) }
+                .disabled(fitsDay)
             Divider()
+            Button("Fit Day") { setScale(0) }
+                .disabled(fitsDay)
             Button("Reset to 100%") { setScale(1.0) }
         }
-        .help("Timeline scale: \(percentage)%. Drag left or right; right-click to reset.")
+        .help("Timeline scale: \(scaleDescription). Drag left or right; right-click for Fit Day or reset.")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Timeline scale")
-        .accessibilityValue("\(percentage) percent")
+        .accessibilityValue(fitsDay ? "Fit day" : "\(Int((effectiveScale * 100).rounded())) percent")
         .accessibilityHint("Adjusts horizontal time spacing in both calendar timelines.")
         .accessibilityAdjustableAction { direction in
             switch direction {
-            case .increment: setScale(scale + 0.05)
-            case .decrement: setScale(scale - 0.05)
+            case .increment: setScale(effectiveScale + 0.05)
+            case .decrement: setScale(effectiveScale - 0.05)
             @unknown default: break
             }
         }
+        .accessibilityAction(named: "Fit Day") { setScale(0) }
         .accessibilityAction(named: "Reset to 100%") { setScale(1.0) }
     }
 
     private func setScale(_ value: Double) {
-        let next = (CalendarTimelineScale.clamped(value) * 100).rounded() / 100
+        let rounded = (CalendarTimelineScale.clamped(value) * 100).rounded() / 100
+        let next = value <= lowerBound || rounded <= lowerBound ? 0 : rounded
         if scale != next { scale = next }
     }
 

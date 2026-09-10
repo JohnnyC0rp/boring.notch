@@ -17,6 +17,7 @@ struct HomeCalendarScrollView<Content: View>: NSViewRepresentable {
     var centerTarget = false
     var onPositioned: () -> Void = {}
     let height: CGFloat
+    var fitDay = false
     let onScroll: (Date) -> Void
     @ViewBuilder let content: () -> Content
 
@@ -44,19 +45,25 @@ struct HomeCalendarScrollView<Content: View>: NSViewRepresentable {
         let rebasedOffset = HomeCalendarGeometry.rebasedOffset(scrollView.contentView.bounds.minX + anchorOffset,
                                                               from: coordinator.days, to: days) - anchorOffset
         let changedLayout = coordinator.days != days
+        let enteredFitDay = fitDay && !coordinator.fitDay
+        let resizedFitDay = fitDay && changedScale && coordinator.targetDay == targetDay
         let shouldReset = coordinator.resetID != resetID
         coordinator.days = days
+        coordinator.fitDay = fitDay
+        coordinator.targetDay = targetDay
         coordinator.resetID = resetID
         let width = HomeCalendarGeometry.width(of: days)
         coordinator.hosting?.rootView = content()
         coordinator.hosting?.frame = NSRect(x: 0, y: 0, width: width, height: height)
         if shouldReset {
-            scrollView.position(on: targetDay, near: targetDate, in: days, centered: centerTarget) {
+            scrollView.position(on: targetDay, near: fitDay && !centerTarget ? targetDay : targetDate, in: days, centered: centerTarget) {
                 DispatchQueue.main.async { [weak coordinator] in
                     guard coordinator?.resetID == resetID else { return }
                     onPositioned()
                 }
             }
+        } else if enteredFitDay || resizedFitDay {
+            scrollView.move(to: HomeCalendarGeometry.offset(of: Calendar.current.startOfDay(for: targetDay), in: days))
         } else if changedLayout {
             scrollView.move(to: rebasedOffset)
         }
@@ -78,6 +85,8 @@ struct HomeCalendarScrollView<Content: View>: NSViewRepresentable {
     final class Coordinator {
         var hosting: NSHostingView<Content>?
         var days: [HomeCalendarGeometry.Day] = []
+        var targetDay: Date?
+        var fitDay = false
         var resetID: Int?
     }
 }

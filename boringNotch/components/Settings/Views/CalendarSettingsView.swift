@@ -156,6 +156,10 @@ struct CalendarSettings: View {
 struct CalendarLayoutSettings: View {
     @Default(.calendarTimelineScale) private var scale
 
+    private var scaleDescription: String {
+        CalendarTimelineScale.clamped(scale) == 0 ? "Fit day" : "\(Int((CalendarTimelineScale.clamped(scale) * 100).rounded()))%"
+    }
+
     private var boundedScale: Binding<Double> {
         Binding(
             get: { CalendarTimelineScale.clamped(scale) },
@@ -167,25 +171,25 @@ struct CalendarLayoutSettings: View {
         Form {
             Section {
                 LabeledContent("Horizontal scale") {
-                    Text("\(Int((CalendarTimelineScale.clamped(scale) * 100).rounded()))%")
+                    Text(scaleDescription)
                         .monospacedDigit()
                 }
                 Slider(value: boundedScale, in: CalendarTimelineScale.range, step: 0.05) {
                     Text("Horizontal timeline scale")
                 } minimumValueLabel: {
-                    Text("75%")
+                    Text("Fit day")
                 } maximumValueLabel: {
                     Text("250%")
                 }
                 .labelsHidden()
-                .accessibilityValue("\(Int((CalendarTimelineScale.clamped(scale) * 100).rounded())) percent")
+                .accessibilityValue(CalendarTimelineScale.clamped(scale) == 0 ? "Fit day" : "\(Int((CalendarTimelineScale.clamped(scale) * 100).rounded())) percent")
 
                 Button("Reset to 100%") { scale = 1.0 }
                     .disabled(CalendarTimelineScale.clamped(scale) == 1.0)
             } header: {
                 Text("Timeline")
             } footer: {
-                Text("Applies to the Home and Calendar timelines. Text size, day height, and the month grid stay unchanged. Drag the scale wheel in either timeline to adjust it directly.")
+                Text("Applies to the Home and Calendar timelines. The lowest scale fits the whole day; titles hide in narrow event blocks. Text size and day height stay unchanged. Drag the scale wheel in either timeline to adjust it directly.")
             }
         }
         .navigationTitle("Calendar Layout")
