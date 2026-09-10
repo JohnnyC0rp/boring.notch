@@ -15,6 +15,7 @@ struct CalendarTimelineView: View {
     @Default(.hideAllDayEvents) private var hideAllDayEvents
     @Default(.hideCompletedReminders) private var hideCompletedReminders
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var viewportWidth = 524.0
     @State private var windowCenter: Date
     @State private var displayedDate: Date
     @State private var targetDay: Date
@@ -39,7 +40,9 @@ struct CalendarTimelineView: View {
         _targetTime = State(initialValue: Self.initialTime(for: date))
     }
 
-    private var pointsPerHour: Double { CalendarTimelineScale.pointsPerHour(for: timelineScale) }
+    private var fitScale: Double { viewportWidth / ((visibleRanges.map(\.duration).max() ?? 12 * 3600) / 3600) / 96 }
+    private var pointsPerHour: Double { CalendarTimelineScale.pointsPerHour(for: timelineScale, fitting: viewportWidth,
+                                                                          duration: visibleRanges.map(\.duration).max() ?? 12 * 3600) }
     private var days: [CalendarDayStackGeometry.Day] { CalendarDayStackGeometry.days(centeredOn: windowCenter) }
     private var hasAccess: Bool { calendarAccess == .fullAccess || reminderAccess == .fullAccess }
     private var requestID: String { "\(days.first?.id.timeIntervalSince1970 ?? 0)-\(reloadID)" }
@@ -84,6 +87,12 @@ struct CalendarTimelineView: View {
                     }
                 }
                 .frame(height: 204)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.onAppear { viewportWidth = max(0, Double(proxy.size.width) - 76) }
+                            .onChange(of: proxy.size.width) { _, width in viewportWidth = max(0, Double(width) - 76) }
+                    }
+                }
                 .clipped()
             } else {
                 permissionState.frame(height: 204)
@@ -119,7 +128,7 @@ struct CalendarTimelineView: View {
             if loading { ProgressView().controlSize(.mini) }
             Spacer(minLength: 8)
             Text("↕ DAYS   ↔ HOURS").font(.system(size: 9, weight: .medium)).foregroundStyle(.white.opacity(0.4))
-            CalendarScaleControl()
+            CalendarScaleControl(minimumScale: fitScale)
             dayArrow("chevron.up", offset: -1)
             Button("Today", action: goToToday)
                 .font(.system(size: 11, weight: .medium))
@@ -233,7 +242,7 @@ struct CalendarTimelineView: View {
         let day = visibleRange(for: targetDay)
         let start = CalendarTimelineGeometry.position(of: event.start, in: day, pointsPerHour: pointsPerHour)
         let end = CalendarTimelineGeometry.position(of: event.end, in: day, pointsPerHour: pointsPerHour)
-        return end - start <= 28
+        return end - start < 52
     }
 
     private func didScroll(to position: CalendarDayStackGeometry.Position, vertical: Bool) {
@@ -411,7 +420,7 @@ private struct CalendarTimelineTrack: View {
                     RoundedRectangle(cornerRadius: 1)
                         .fill(color)
                         .frame(width: 2)
-                    if placement.width > 28 {
+                    if placement.width >= 52 {
                         VStack(alignment: .leading, spacing: laneHeight >= 52 ? 6 : 1) {
                             Text(event.title)
                                 .font(.system(size: 11, weight: .medium))
@@ -430,7 +439,7 @@ private struct CalendarTimelineTrack: View {
                     }
                 }
                 .padding(.vertical, laneHeight > 40 ? 4 : 2)
-                .padding(.horizontal, placement.width > 28 ? 4 : 0)
+                .padding(.horizontal, placement.width >= 52 ? 4 : 0)
                 .frame(width: max(1, placement.width), height: blockHeight, alignment: .leading)
                 .background(color.opacity(isSelected ? 0.3 : 0.15), in: RoundedRectangle(cornerRadius: 5))
                 .overlay {
