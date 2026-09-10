@@ -15,10 +15,12 @@ enum HomeCalendarGeometry {
     struct Day: Identifiable, Equatable {
         let interval: DateInterval
         let visibleInterval: DateInterval
+        let pointsPerHour: Double
 
-        init(interval: DateInterval, visibleInterval: DateInterval? = nil) {
+        init(interval: DateInterval, visibleInterval: DateInterval? = nil, pointsPerHour: Double = HomeCalendarGeometry.pointsPerHour) {
             self.interval = interval
             self.visibleInterval = visibleInterval ?? interval
+            self.pointsPerHour = pointsPerHour
         }
 
         var id: Date { interval.start }
@@ -26,12 +28,12 @@ enum HomeCalendarGeometry {
         func isTimeVisible(_ date: Date) -> Bool { date >= visibleInterval.start && date < visibleInterval.end }
     }
 
-    static func days(centeredOn date: Date, events: [CalendarTimelineGeometry.Interval] = [], calendar: Calendar = .current) -> [Day] {
+    static func days(centeredOn date: Date, events: [CalendarTimelineGeometry.Interval] = [], pointsPerHour: Double = pointsPerHour, calendar: Calendar = .current) -> [Day] {
         let center = calendar.startOfDay(for: date)
         return (-3...3).compactMap { offset in
             guard let day = calendar.date(byAdding: .day, value: offset, to: center),
                   let interval = calendar.dateInterval(of: .day, for: day) else { return nil }
-            return Day(interval: interval, visibleInterval: CalendarTimelineGeometry.visibleRange(in: interval, events: events, calendar: calendar))
+            return Day(interval: interval, visibleInterval: CalendarTimelineGeometry.visibleRange(in: interval, events: events, calendar: calendar), pointsPerHour: pointsPerHour)
         }
     }
 
@@ -48,7 +50,7 @@ enum HomeCalendarGeometry {
         var offset = 0.0
         for (index, day) in days.enumerated() {
             if date < day.interval.end {
-                return offset + CalendarTimelineGeometry.position(of: date, in: day.visibleInterval, pointsPerHour: pointsPerHour)
+                return offset + CalendarTimelineGeometry.position(of: date, in: day.visibleInterval, pointsPerHour: day.pointsPerHour)
             }
             offset += day.width
             if index < days.count - 1 { offset += daySpacing }
@@ -60,7 +62,7 @@ enum HomeCalendarGeometry {
         var remaining = max(0, offset)
         for (index, day) in days.enumerated() {
             if remaining < day.width || index == days.count - 1 {
-                return day.visibleInterval.start.addingTimeInterval(min(remaining / pointsPerHour * 3600, day.visibleInterval.duration))
+                return day.visibleInterval.start.addingTimeInterval(min(remaining / day.pointsPerHour * 3600, day.visibleInterval.duration))
             }
             remaining -= day.width
             // A gap announces the next day; it never invents minutes between them.
@@ -100,7 +102,7 @@ enum HomeCalendarGeometry {
             return offset(of: date, in: days)
         }
         let leading = offset(of: day.interval.start, in: days)
-        let local = CalendarTimelineGeometry.position(of: date, in: day.visibleInterval, pointsPerHour: pointsPerHour)
+        let local = CalendarTimelineGeometry.position(of: date, in: day.visibleInterval, pointsPerHour: day.pointsPerHour)
         return leading + min(local, max(0, day.width - max(0, viewportWidth)))
     }
 

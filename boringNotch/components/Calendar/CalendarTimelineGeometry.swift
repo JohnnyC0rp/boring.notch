@@ -102,6 +102,35 @@ enum CalendarTimelineGeometry {
         min(max(date.timeIntervalSince(day.start), 0), day.duration) / 3600 * pointsPerHour
     }
 
+    struct HourLabel: Identifiable {
+        let id: Date
+        let x: Double
+        let width: Double
+    }
+
+    /// Pack measured labels without shrinking text, including cropped endpoints and DST suffixes.
+    static func hourLabels(in day: DateInterval, pointsPerHour: Double, widths: [Double],
+                           avoiding exclusions: [Range<Double>] = []) -> [HourLabel] {
+        let ticks = hourTicks(in: day)
+        let totalWidth = day.duration / 3600 * pointsPerHour
+        let candidates = zip(ticks, widths).map { tick, width in
+            HourLabel(id: tick, x: min(max(0, position(of: tick, in: day, pointsPerHour: pointsPerHour) + 4),
+                                      max(0, totalWidth - width)), width: width)
+        }.filter { label in
+            label.width <= totalWidth && !exclusions.contains { $0.overlaps((label.x - 4)..<(label.x + label.width + 4)) }
+        }
+        // The end of the day gets a seat before the remaining labels line up.
+        guard let last = candidates.last else { return [] }
+        var result: [HourLabel] = []
+        var previousEnd = -Double.infinity
+        for label in candidates.dropLast() where label.x >= previousEnd + 6 && label.x + label.width + 6 <= last.x {
+            result.append(label)
+            previousEnd = label.x + label.width
+        }
+        result.append(last)
+        return result
+    }
+
     static func hourTicks(in day: DateInterval) -> [Date] {
         // Advancing actual hours preserves both occurrences of a repeated autumn hour.
         var ticks = stride(from: 0.0, through: day.duration, by: 3600).map {
@@ -162,4 +191,15 @@ enum CalendarTimelineGeometry {
         finishCluster()
         return counts
     }
+}
+
+/// Horizontal density changes time geometry, never the event typography.
+enum CalendarTimelineScale {
+    static let range = 0.75...2.5
+
+    static func clamped(_ value: Double) -> Double {
+        value.isFinite ? min(max(value, range.lowerBound), range.upperBound) : 1
+    }
+
+    static func pointsPerHour(for value: Double) -> Double { 96 * clamped(value) }
 }
