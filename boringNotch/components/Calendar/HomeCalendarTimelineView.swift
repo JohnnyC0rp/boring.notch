@@ -21,6 +21,7 @@ struct HomeCalendarTimelineView: View {
     @Default(.calendarTimelineScale) private var timelineScale
     @Default(.hideAllDayEvents) private var hideAllDayEvents
     @Default(.hideCompletedReminders) private var hideCompletedReminders
+    @State private var viewportWidth = 315.0
     @State private var windowCenter: Date
     @State private var displayedDate: Date
     @State private var targetDate: Date
@@ -46,11 +47,22 @@ struct HomeCalendarTimelineView: View {
         _centerTarget = State(initialValue: Defaults[.autoScrollToNextEvent] && Calendar.current.isDateInToday(date))
     }
 
+    private var fitScale: Double {
+        let day = days.first { Calendar.current.isDate($0.id, inSameDayAs: displayedDate) }
+        return viewportWidth / ((day?.visibleInterval.duration ?? 12 * 3600) / 3600) / 96
+    }
+    private var pointsPerHour: Double {
+        let day = CalendarTimelineGeometry.dayInterval(for: displayedDate)
+        let range = CalendarTimelineGeometry.visibleRange(in: day, events: events.map {
+            .init(id: $0.homeTimelineID, start: $0.start, end: $0.end, isAllDay: $0.isAllDay, isReminder: $0.type.isReminder)
+        })
+        return CalendarTimelineScale.pointsPerHour(for: timelineScale, fitting: viewportWidth, duration: range.duration)
+    }
     private var days: [HomeCalendarGeometry.Day] {
         HomeCalendarGeometry.days(centeredOn: windowCenter, events: events.map {
             .init(id: $0.homeTimelineID, start: $0.start, end: $0.end,
                   isAllDay: $0.isAllDay, isReminder: $0.type.isReminder)
-        }, pointsPerHour: CalendarTimelineScale.pointsPerHour(for: timelineScale))
+        }, pointsPerHour: pointsPerHour)
     }
     private var hasAccess: Bool { calendarAccess == .fullAccess || reminderAccess == .fullAccess }
     private var requestID: String { "\(Calendar.current.startOfDay(for: windowCenter).timeIntervalSince1970)-\(reloadID)" }
@@ -68,8 +80,8 @@ struct HomeCalendarTimelineView: View {
             if hasAccess {
                 ZStack {
                     TimelineView(.periodic(from: .now, by: 30)) { context in
-                        HomeCalendarScrollView(days: days, targetDay: displayedDate, targetDate: targetDate, resetID: resetID, centerTarget: centerTarget, onPositioned: didPosition,
-                                               height: 100, onScroll: didScroll) {
+                        HomeCalendarScrollView(days: days, targetDay: displayedDate, targetDate: targetDate, resetID: resetID, centerTarget: centerTarget && (timelineScale > fitScale || awaitingHighlight), onPositioned: didPosition,
+                                               height: 100, fitDay: timelineScale <= fitScale, onScroll: didScroll) {
                             HStack(spacing: HomeCalendarGeometry.daySpacing) {
                                 ForEach(days) { day in
                                     HomeCalendarDayLane(day: day, events: timedEvents(on: day.interval), now: context.date, highlightNow: highlightNow,
@@ -93,6 +105,12 @@ struct HomeCalendarTimelineView: View {
                     }
                 }
                 .frame(height: 100)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.onAppear { viewportWidth = proxy.size.width }
+                            .onChange(of: proxy.size.width) { _, width in viewportWidth = width }
+                    }
+                }
                 .clipped()
             } else {
                 permissionState.frame(height: 100)
@@ -150,7 +168,7 @@ struct HomeCalendarTimelineView: View {
                 .help("All-day events and reminders")
                 .accessibilityLabel("\(special.count) all-day events and reminders")
             }
-            CalendarScaleControl()
+            CalendarScaleControl(minimumScale: fitScale)
             dayArrow("chevron.left", offset: -1)
             Button("Today") { jump(to: Date(), showCurrentTime: true) }
                 .help("Today (T)")
@@ -370,7 +388,7 @@ private struct HomeCalendarDayLane: View {
                 Color.clear
                 HStack(spacing: 4) {
                     RoundedRectangle(cornerRadius: 1).fill(color).frame(width: 2)
-                    if placement.width > 28 {
+                    if placement.width >= 52 {
                         VStack(alignment: .leading, spacing: tall ? 6 : 2) {
                             Text(event.title)
                                 .font(.system(size: 11, weight: .medium))
@@ -389,7 +407,7 @@ private struct HomeCalendarDayLane: View {
                     }
                 }
                 .padding(.vertical, tall ? 5 : 2)
-                .padding(.horizontal, placement.width > 28 ? 4 : 0)
+                .padding(.horizontal, placement.width >= 52 ? 4 : 0)
                 .frame(width: max(1, placement.width), height: laneHeight - 4, alignment: .leading)
                 .background(color.opacity(0.16), in: RoundedRectangle(cornerRadius: 5))
                 .overlay { RoundedRectangle(cornerRadius: 5).strokeBorder(color.opacity(0.3), lineWidth: 1) }

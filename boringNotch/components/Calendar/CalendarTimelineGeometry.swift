@@ -195,11 +195,14 @@ enum CalendarTimelineGeometry {
 
 /// Horizontal density changes time geometry, never the event typography.
 enum CalendarTimelineScale {
-    static let range = 0.75...2.5
+    static let range = 0.0...2.5
 
     static func clamped(_ value: Double) -> Double {
         value.isFinite ? min(max(value, range.lowerBound), range.upperBound) : 1
     }
 
-    static func pointsPerHour(for value: Double) -> Double { 96 * clamped(value) }
+    static func pointsPerHour(for value: Double, fitting viewportWidth: Double = 0, duration: TimeInterval = 12 * 3600) -> Double {
+        let fit = duration > 0 && viewportWidth > 0 ? viewportWidth / (duration / 3600) : (value <= 0 ? 96 : 0)
+        return max(fit, 96 * clamped(value))
+    }
 }
