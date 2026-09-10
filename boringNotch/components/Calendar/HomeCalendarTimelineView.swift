@@ -358,6 +358,7 @@ private struct HomeCalendarDayLane: View {
                     .padding(.horizontal, 4)
                     .background(.black)
                     .offset(x: 39)
+                    .opacity(showDayCaption ? 1 : 0)
                 if isToday {
                     Text(now.formatted(.dateTime.hour().minute()))
                         .font(.system(size: 11, weight: .semibold, design: .monospaced))
@@ -428,22 +429,29 @@ private struct HomeCalendarDayLane: View {
         CalendarTimelineGeometry.position(of: date, in: day.visibleInterval, pointsPerHour: day.pointsPerHour)
     }
 
-    private var hourLabelExclusions: [Range<Double>] {
-        let dayLabel = day.interval.start.formatted(.dateTime.weekday(.abbreviated).day()).uppercased()
-        let dayLabelWidth = Double(ceil((dayLabel as NSString).size(withAttributes: [
+    private var dayCaptionRange: Range<Double> {
+        let label = day.interval.start.formatted(.dateTime.weekday(.abbreviated).day()).uppercased()
+        let width = Double(ceil((label as NSString).size(withAttributes: [
             .font: NSFont.systemFont(ofSize: 8, weight: .bold)
         ]).width)) + 8
-        var exclusions = [39..<(39 + dayLabelWidth)]
-        let markerLeading: Double
+        return 39..<(39 + width)
+    }
+
+    private var timeMarkerRange: Range<Double>? {
+        let leading: Double
         if let gapMarkerOffset {
-            markerLeading = gapMarkerOffset - homeCalendarTimeCapsuleWidth / 2
+            leading = gapMarkerOffset - homeCalendarTimeCapsuleWidth / 2
         } else if day.isTimeVisible(now) {
-            markerLeading = min(max(0, position(now) - homeCalendarTimeCapsuleWidth / 2), day.width - homeCalendarTimeCapsuleWidth)
+            leading = min(max(0, position(now) - homeCalendarTimeCapsuleWidth / 2), day.width - homeCalendarTimeCapsuleWidth)
         } else {
-            return exclusions
+            return nil
         }
-        exclusions.append(markerLeading..<(markerLeading + homeCalendarTimeCapsuleWidth))
-        return exclusions
+        return leading..<(leading + homeCalendarTimeCapsuleWidth)
+    }
+
+    private var showDayCaption: Bool { timeMarkerRange.map { !$0.overlaps(dayCaptionRange) } ?? true }
+    private var hourLabelExclusions: [Range<Double>] {
+        [showDayCaption ? dayCaptionRange : nil, timeMarkerRange].compactMap { $0 }
     }
 
     private func tickLabel(_ tick: Date) -> String {
