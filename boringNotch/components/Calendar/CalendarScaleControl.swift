@@ -9,6 +9,7 @@ struct CalendarScaleControl: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @GestureState private var isDragging = false
     @State private var dragOrigin: Double?
+    @State private var hasDragged = false
     @State private var isHovered = false
 
     private var lowerBound: Double {
@@ -50,8 +51,10 @@ struct CalendarScaleControl: View {
                 .onChanged { value in
                     if dragOrigin == nil {
                         dragOrigin = effectiveScale
+                        hasDragged = false
                         SharingStateManager.shared.beginInteraction()
                     }
+                    hasDragged = hasDragged || hypot(value.translation.width, value.translation.height) >= 4
                     let proposed = (dragOrigin ?? 1.0) + value.translation.width / 160
                     setScale(proposed)
                     if proposed < lowerBound || proposed > CalendarTimelineScale.range.upperBound {
@@ -59,7 +62,13 @@ struct CalendarScaleControl: View {
                         dragOrigin = max(lowerBound, CalendarTimelineScale.clamped(proposed)) - value.translation.width / 160
                     }
                 }
-                .onEnded { _ in finishDragging() }
+                .onEnded { value in
+                    // A round trip is still a drag, even when the pointer comes home.
+                    if dragOrigin != nil, !hasDragged, hypot(value.translation.width, value.translation.height) < 4 {
+                        setScale(1.0)
+                    }
+                    finishDragging()
+                }
         )
         .onChange(of: isDragging) { _, active in
             if !active { finishDragging() }
@@ -75,11 +84,11 @@ struct CalendarScaleControl: View {
                 .disabled(fitsDay)
             Button("Reset to 100%") { setScale(1.0) }
         }
-        .help("Timeline scale: \(scaleDescription). Drag left or right; right-click for Fit Day or reset.")
+        .help("Timeline scale: \(scaleDescription). Drag to zoom; click to reset to 100%; right-click for Fit Day.")
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Timeline scale")
         .accessibilityValue(fitsDay ? "Fit day" : "\(Int((effectiveScale * 100).rounded())) percent")
-        .accessibilityHint("Adjusts horizontal time spacing in both calendar timelines.")
+        .accessibilityHint("Drag to adjust time spacing. Click to reset to 100%.")
         .accessibilityAdjustableAction { direction in
             switch direction {
             case .increment: setScale(effectiveScale + 0.05)
@@ -100,6 +109,7 @@ struct CalendarScaleControl: View {
     private func finishDragging() {
         guard dragOrigin != nil else { return }
         dragOrigin = nil
+        hasDragged = false
         SharingStateManager.shared.endInteraction()
     }
 }
