@@ -1,11 +1,10 @@
-import Defaults
 import SwiftUI
 
 /// A stationary thumbwheel; dragging changes time spacing without resizing the control.
 struct CalendarScaleControl: View {
+    @Binding var scale: Double
     var minimumScale: Double = 0
 
-    @Default(.calendarTimelineScale) private var scale
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @GestureState private var isDragging = false
     @State private var dragOrigin: Double?

@@ -367,7 +367,9 @@ extension Defaults.Keys {
     static let showFullEventTitles = Key<Bool>("showFullEventTitles", default: false)
     static let autoScrollToNextEvent = Key<Bool>("autoScrollToNextEvent", default: true)
     static let calendarWeekView = Key<Bool>("calendarWeekView", default: false)
+    // Home retains the original preference key for existing installations.
     static let calendarTimelineScale = Key<Double>("calendarTimelineScale", default: 1.0)
+    static let calendarPaneTimelineScale = Key<Double>("calendarPaneTimelineScale", default: 1.0)
     static let weekStartDay = Key<WeekStartDay>("weekStartDay", default: .system)
     static let joinMeetingOnEventTap = Key<Bool>("joinMeetingOnEventTap", default: true)
     
