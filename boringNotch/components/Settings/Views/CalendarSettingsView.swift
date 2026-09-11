@@ -154,44 +154,42 @@ struct CalendarSettings: View {
 }
 
 struct CalendarLayoutSettings: View {
-    @Default(.calendarTimelineScale) private var scale
-
-    private var scaleDescription: String {
-        CalendarTimelineScale.clamped(scale) == 0 ? "Fit day" : "\(Int((CalendarTimelineScale.clamped(scale) * 100).rounded()))%"
-    }
-
-    private var boundedScale: Binding<Double> {
-        Binding(
-            get: { CalendarTimelineScale.clamped(scale) },
-            set: { scale = CalendarTimelineScale.clamped($0) }
-        )
-    }
+    @Default(.calendarTimelineScale) private var homeScale
 
     var body: some View {
         Form {
-            Section {
-                LabeledContent("Horizontal scale") {
-                    Text(scaleDescription)
-                        .monospacedDigit()
-                }
-                Slider(value: boundedScale, in: CalendarTimelineScale.range, step: 0.05) {
-                    Text("Horizontal timeline scale")
-                } minimumValueLabel: {
-                    Text("Fit day")
-                } maximumValueLabel: {
-                    Text("250%")
-                }
-                .labelsHidden()
-                .accessibilityValue(CalendarTimelineScale.clamped(scale) == 0 ? "Fit day" : "\(Int((CalendarTimelineScale.clamped(scale) * 100).rounded())) percent")
-
-                Button("Reset to 100%") { scale = 1.0 }
-                    .disabled(CalendarTimelineScale.clamped(scale) == 1.0)
-            } header: {
-                Text("Timeline")
-            } footer: {
-                Text("Applies to the Home and Calendar timelines. The lowest scale fits the whole day; titles hide in narrow event blocks. Text size and day height stay unchanged. Drag the scale wheel in either timeline to adjust it directly.")
-            }
+            scaleSection("Home timeline", scale: $homeScale)
         }
         .navigationTitle("Calendar Layout")
+    }
+
+    private func scaleSection(_ title: LocalizedStringKey, scale: Binding<Double>) -> some View {
+        let value = CalendarTimelineScale.clamped(scale.wrappedValue)
+        let description = value == 0 ? "Fit day" : "\(Int((value * 100).rounded()))%"
+        let boundedScale = Binding(
+            get: { CalendarTimelineScale.clamped(scale.wrappedValue) },
+            set: { scale.wrappedValue = CalendarTimelineScale.clamped($0) }
+        )
+        return Section {
+            LabeledContent("Horizontal scale") {
+                Text(description).monospacedDigit()
+            }
+            Slider(value: boundedScale, in: CalendarTimelineScale.range, step: 0.05) {
+                Text(title)
+            } minimumValueLabel: {
+                Text("Fit day")
+            } maximumValueLabel: {
+                Text("250%")
+            }
+            .labelsHidden()
+            .accessibilityValue(value == 0 ? "Fit day" : "\(Int((value * 100).rounded())) percent")
+
+            Button("Reset to 100%") { scale.wrappedValue = 1.0 }
+                .disabled(value == 1.0)
+        } header: {
+            Text(title)
+        } footer: {
+            Text("This scale applies only to this timeline. Fit day shows the whole day; narrow event blocks hide titles. Drag its wheel to adjust the scale.")
+        }
     }
 }

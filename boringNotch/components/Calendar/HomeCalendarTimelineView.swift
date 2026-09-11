@@ -168,7 +168,7 @@ struct HomeCalendarTimelineView: View {
                 .help("All-day events and reminders")
                 .accessibilityLabel("\(special.count) all-day events and reminders")
             }
-            CalendarScaleControl(minimumScale: fitScale)
+            CalendarScaleControl(scale: $timelineScale, minimumScale: fitScale)
             dayArrow("chevron.left", offset: -1)
             Button("Today") { jump(to: Date(), showCurrentTime: true) }
                 .help("Today (T)")
