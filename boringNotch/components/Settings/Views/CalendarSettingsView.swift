@@ -155,10 +155,12 @@ struct CalendarSettings: View {
 
 struct CalendarLayoutSettings: View {
     @Default(.calendarTimelineScale) private var homeScale
+    @Default(.calendarPaneTimelineScale) private var calendarScale
 
     var body: some View {
         Form {
             scaleSection("Home timeline", scale: $homeScale)
+            scaleSection("Calendar pane", scale: $calendarScale)
         }
         .navigationTitle("Calendar Layout")
     }

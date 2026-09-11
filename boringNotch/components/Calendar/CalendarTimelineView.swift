@@ -11,7 +11,7 @@ import SwiftUI
 struct CalendarTimelineView: View {
     @ObservedObject private var manager = CalendarManager.shared
     @ObservedObject private var coordinator = BoringViewCoordinator.shared
-    @Default(.calendarTimelineScale) private var timelineScale
+    @Default(.calendarPaneTimelineScale) private var timelineScale
     @Default(.hideAllDayEvents) private var hideAllDayEvents
     @Default(.hideCompletedReminders) private var hideCompletedReminders
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -128,7 +128,7 @@ struct CalendarTimelineView: View {
             if loading { ProgressView().controlSize(.mini) }
             Spacer(minLength: 8)
             Text("↕ DAYS   ↔ HOURS").font(.system(size: 9, weight: .medium)).foregroundStyle(.white.opacity(0.4))
-            CalendarScaleControl(minimumScale: fitScale)
+            CalendarScaleControl(scale: $timelineScale, minimumScale: fitScale)
             dayArrow("chevron.up", offset: -1)
             Button("Today", action: goToToday)
                 .font(.system(size: 11, weight: .medium))
